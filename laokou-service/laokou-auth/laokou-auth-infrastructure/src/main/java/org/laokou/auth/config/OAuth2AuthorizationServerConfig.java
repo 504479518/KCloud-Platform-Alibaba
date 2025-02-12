@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,8 @@ import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
-import org.laokou.auth.config.authentication.OAuth2MailAuthenticationConverter;
-import org.laokou.auth.config.authentication.OAuth2MobileAuthenticationConverter;
-import org.laokou.auth.config.authentication.OAuth2PasswordAuthenticationConverter;
-import org.laokou.auth.config.authentication.UsersServiceImpl;
-import org.laokou.auth.config.filter.OAuth2AuthorizationFilter;
+import org.laokou.auth.ability.validator.PasswordValidator;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -38,12 +35,14 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
@@ -52,8 +51,9 @@ import org.springframework.security.oauth2.server.authorization.config.annotatio
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.token.*;
-import org.springframework.security.oauth2.server.authorization.web.authentication.DelegatingAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationConverter;
+import org.springframework.security.web.authentication.DelegatingAuthenticationConverter;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -64,63 +64,73 @@ import java.security.interfaces.RSAPublicKey;
 import java.util.List;
 import java.util.UUID;
 
-import static org.laokou.common.crypto.utils.RsaUtil.ALGORITHM_RSA;
+import static org.laokou.common.crypto.utils.RSAUtil.RSA;
 import static org.springframework.core.Ordered.HIGHEST_PRECEDENCE;
 
+// @formatter:off
 /**
  * 认证服务器配置. 自动装配JWKSource {@link OAuth2AuthorizationServerJwtAutoConfiguration}.
  *
  * @author laokou
  */
-@Configuration
-@ConditionalOnProperty(havingValue = "true", matchIfMissing = true,
-		prefix = "spring.security.oauth2.authorization-server", name = "enabled")
+@Configuration(proxyBeanMethods = false)
+@ConditionalOnClass(OAuth2Authorization.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+@ConditionalOnProperty(havingValue = "true", matchIfMissing = true, prefix = "spring.security.oauth2.authorization-server", name = "enabled")
 class OAuth2AuthorizationServerConfig {
 
-	/**
-	 * 登录URL.
-	 */
-	private static final String LOGIN_URL = "/login";
+	private static void applyDefaultSecurity(HttpSecurity http) throws Exception {
+		// @formatter:off
+        OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = OAuth2AuthorizationServerConfigurer.authorizationServer();
+        http.securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
+                .with(authorizationServerConfigurer, Customizer.withDefaults())
+                .authorizeHttpRequests((authorize) -> authorize.anyRequest().authenticated());
+        // @formatter:on
+	}
+	// @formatter:on
 
-	// @formatter:off
 	/**
 	 * OAuth2AuthorizationServer核心配置.
 	 * @param http http配置
-	 * @param passwordAuthenticationProvider 密码认证Provider
+	 * @param usernamePasswordAuthenticationProvider 用户名密码认证Provider
 	 * @param mailAuthenticationProvider 邮箱认证Provider
 	 * @param mobileAuthenticationProvider 手机号认证Provider
 	 * @param authorizationServerSettings OAuth2配置
 	 * @param authorizationService 认证配置
+	 * @param mailAuthenticationConverter 邮箱认证Converter
+	 * @param mobileAuthenticationConverter 手机号认证Converter
+	 * @param usernamePasswordAuthenticationConverter 用户名密码认证Converter
 	 * @return 认证过滤器
 	 * @throws Exception 异常
 	 */
 	@Bean
 	@Order(HIGHEST_PRECEDENCE)
 	SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http,
-			AuthenticationProvider passwordAuthenticationProvider,
-			AuthenticationProvider mailAuthenticationProvider,
-			AuthenticationProvider mobileAuthenticationProvider,
-			AuthorizationServerSettings authorizationServerSettings,
-			OAuth2AuthorizationService authorizationService) throws Exception {
+			AuthenticationProvider usernamePasswordAuthenticationProvider,
+			AuthenticationProvider mailAuthenticationProvider, AuthenticationProvider mobileAuthenticationProvider,
+			AuthenticationConverter usernamePasswordAuthenticationConverter,
+			AuthenticationConverter mailAuthenticationConverter, AuthenticationConverter mobileAuthenticationConverter,
+			AuthorizationServerSettings authorizationServerSettings, OAuth2AuthorizationService authorizationService)
+			throws Exception {
 		// https://docs.spring.io/spring-authorization-server/docs/current/reference/html/configuration-model.html
-		OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
+		OAuth2AuthorizationServerConfig.applyDefaultSecurity(http);
 		http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
 			// https://docs.spring.io/spring-authorization-server/docs/current/reference/html/protocol-endpoints.html#oauth2-token-endpoint
-			.tokenEndpoint((tokenEndpoint) -> tokenEndpoint.accessTokenRequestConverter(new DelegatingAuthenticationConverter(List.of(
-						new OAuth2MailAuthenticationConverter(),
-						new OAuth2PasswordAuthenticationConverter(),
-						new OAuth2MobileAuthenticationConverter())))
-				.authenticationProvider(passwordAuthenticationProvider)
+			.tokenEndpoint((tokenEndpoint) -> tokenEndpoint
+				.accessTokenRequestConverter(
+						new DelegatingAuthenticationConverter(List.of(usernamePasswordAuthenticationConverter,
+								mobileAuthenticationConverter, mailAuthenticationConverter)))
+				.authenticationProvider(usernamePasswordAuthenticationProvider)
 				.authenticationProvider(mobileAuthenticationProvider)
 				.authenticationProvider(mailAuthenticationProvider))
 			.oidc(Customizer.withDefaults())
 			.authorizationService(authorizationService)
 			.authorizationServerSettings(authorizationServerSettings);
-		return http.addFilterBefore(new OAuth2AuthorizationFilter(), UsernamePasswordAuthenticationFilter.class)
-				.exceptionHandling(configurer -> configurer.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint(LOGIN_URL))).build();
+		return http.addFilterBefore(UsernamePasswordFilter.INSTANCE, UsernamePasswordAuthenticationFilter.class)
+			.exceptionHandling(
+					configurer -> configurer.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
+			.build();
 	}
-	// @formatter:on
 
 	/**
 	 * 构造注册信息.
@@ -133,7 +143,7 @@ class OAuth2AuthorizationServerConfig {
 	RegisteredClientRepository registeredClientRepository(JdbcTemplate jdbcTemplate,
 			OAuth2AuthorizationServerPropertiesMapper propertiesMapper) {
 		JdbcRegisteredClientRepository registeredClientRepository = new JdbcRegisteredClientRepository(jdbcTemplate);
-		propertiesMapper.asRegisteredClients().parallelStream().forEachOrdered(registeredClientRepository::save);
+		propertiesMapper.asRegisteredClients().forEach(registeredClientRepository::save);
 		return registeredClientRepository;
 	}
 
@@ -195,14 +205,15 @@ class OAuth2AuthorizationServerConfig {
 	/**
 	 * 单点登录配置.
 	 * @param passwordEncoder 密码编码器
-	 * @param usersServiceImpl 用户认证对象
+	 * @param userDetailsServiceImpl 用户认证对象
 	 * @return 单点登录配置
 	 */
 	@Bean
-	AuthenticationProvider authenticationProvider(PasswordEncoder passwordEncoder, UsersServiceImpl usersServiceImpl) {
+	AuthenticationProvider authenticationProvider(PasswordEncoder passwordEncoder,
+			UserDetailsService userDetailsServiceImpl) {
 		DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider();
 		daoAuthenticationProvider.setPasswordEncoder(passwordEncoder);
-		daoAuthenticationProvider.setUserDetailsService(usersServiceImpl);
+		daoAuthenticationProvider.setUserDetailsService(userDetailsServiceImpl);
 		return daoAuthenticationProvider;
 	}
 
@@ -217,6 +228,11 @@ class OAuth2AuthorizationServerConfig {
 	OAuth2AuthorizationConsentService authorizationConsentService(JdbcTemplate jdbcTemplate,
 			RegisteredClientRepository registeredClientRepository) {
 		return new JdbcOAuth2AuthorizationConsentService(jdbcTemplate, registeredClientRepository);
+	}
+
+	@Bean
+	PasswordValidator passwordValidator(PasswordEncoder passwordEncoder) {
+		return passwordEncoder::matches;
 	}
 
 	/**
@@ -236,7 +252,7 @@ class OAuth2AuthorizationServerConfig {
 	 */
 	private KeyPair generateRsaKey() {
 		try {
-			KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(ALGORITHM_RSA);
+			KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(RSA);
 			keyPairGenerator.initialize(2048);
 			return keyPairGenerator.generateKeyPair();
 		}

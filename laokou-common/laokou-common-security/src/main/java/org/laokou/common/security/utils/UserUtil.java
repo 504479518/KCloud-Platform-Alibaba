@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,22 +20,21 @@ package org.laokou.common.security.utils;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.util.Optional;
+import java.util.Set;
+
 /**
  * @author laokou
  */
 public class UserUtil {
 
 	public static UserDetail user() {
-		try {
-			return (UserDetail) getAuthentication().getPrincipal();
-		}
-		catch (Exception e) {
-			return UserDetail.builder().build();
-		}
-	}
-
-	public static Authentication getAuthentication() {
-		return SecurityContextHolder.getContext().getAuthentication();
+		return Optional.ofNullable(getAuthentication()).map(authentication -> {
+			if (authentication.getPrincipal() instanceof UserDetail userDetail) {
+				return userDetail;
+			}
+			return new UserDetail();
+		}).orElse(new UserDetail());
 	}
 
 	/**
@@ -55,19 +54,11 @@ public class UserUtil {
 	}
 
 	/**
-	 * 部门ID.
+	 * 部门PATHS.
 	 * @return Long
 	 */
-	public static Long getDeptId() {
-		return user().getDeptId();
-	}
-
-	/**
-	 * 部门PATH.
-	 * @return Long
-	 */
-	public static String getDeptPath() {
-		return user().getDeptPath();
+	public static Set<String> getDeptPaths() {
+		return user().getDeptPaths();
 	}
 
 	/**
@@ -79,11 +70,15 @@ public class UserUtil {
 	}
 
 	/**
-	 * 数据源名称.
+	 * 数据源前缀.
 	 * @return String
 	 */
-	public static String getSourceName() {
-		return user().getSourceName();
+	public static String getSourcePrefix() {
+		return user().getSourcePrefix();
+	}
+
+	private static Authentication getAuthentication() {
+		return SecurityContextHolder.getContext().getAuthentication();
 	}
 
 }

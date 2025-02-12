@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,10 @@ package org.laokou.common.netty.config;
 
 import io.netty.bootstrap.AbstractBootstrap;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.EventLoopGroup;
 import lombok.extern.slf4j.Slf4j;
-import org.laokou.common.i18n.utils.LogUtil;
-import org.laokou.common.i18n.utils.ObjectUtils;
-import org.springframework.boot.autoconfigure.task.TaskExecutionProperties;
+import org.laokou.common.i18n.utils.ObjectUtil;
 
 /**
  * @author laokou
@@ -32,10 +30,15 @@ import org.springframework.boot.autoconfigure.task.TaskExecutionProperties;
 @Slf4j
 public abstract class AbstractServer implements Server {
 
-	/**
-	 * 运行标记.
-	 */
-	private volatile boolean running;
+	protected final String ip;
+
+	protected final int port;
+
+	protected final ChannelHandler channelHandler;
+
+	protected final int bossCorePoolSize;
+
+	protected final int workerCorePoolSize;
 
 	/**
 	 * 完成初始化，但程序未启动完毕，其他线程结束程序，不能及时回收资源（对其他线程可见）.
@@ -45,22 +48,20 @@ public abstract class AbstractServer implements Server {
 	/**
 	 * 完成初始化，但程序未启动完毕，其他线程结束程序，不能及时回收资源（对其他线程可见）.
 	 */
-	protected volatile EventLoopGroup work;
+	protected volatile EventLoopGroup worker;
 
-	protected final int port;
+	/**
+	 * 运行标记.
+	 */
+	private volatile boolean running;
 
-	protected final String poolName;
-
-	protected final ChannelInitializer<?> channelInitializer;
-
-	protected final TaskExecutionProperties taskExecutionProperties;
-
-	public AbstractServer(int port, String poolName, ChannelInitializer<?> channelInitializer,
-			TaskExecutionProperties taskExecutionProperties) {
+	protected AbstractServer(String ip, int port, ChannelHandler channelHandler, int bossCorePoolSize,
+			int workerCorePoolSize) {
+		this.ip = ip;
 		this.port = port;
-		this.poolName = poolName;
-		this.channelInitializer = channelInitializer;
-		this.taskExecutionProperties = taskExecutionProperties;
+		this.channelHandler = channelHandler;
+		this.bossCorePoolSize = bossCorePoolSize;
+		this.workerCorePoolSize = workerCorePoolSize;
 	}
 
 	/**
@@ -78,12 +79,13 @@ public abstract class AbstractServer implements Server {
 			log.error("已启动监听，端口：{}", port);
 			return;
 		}
-		AbstractBootstrap<?, ?> bootstrap = init();
+		// -Dnetty.server.parentgroup.size=2 -Dnetty.server.childgroup.size=32
+		AbstractBootstrap<?, ?> serverBootstrap = init();
 		try {
 			// 服务器异步操作绑定
 			// sync -> 等待任务结束，如果任务产生异常或被中断则抛出异常，否则返回Future自身
 			// awaitUninterruptibly -> 等待任务结束，任务不可中断
-			ChannelFuture channelFuture = bind(bootstrap, port);
+			ChannelFuture channelFuture = bind(serverBootstrap, port);
 			// 监听端口关闭
 			channelFuture.channel().closeFuture().addListener(future -> {
 				if (running) {
@@ -92,7 +94,7 @@ public abstract class AbstractServer implements Server {
 			});
 		}
 		catch (Exception e) {
-			log.error("启动失败，端口：{}，错误信息：{}，详情见日志", port, LogUtil.record(e.getMessage()), e);
+			log.error("启动失败，端口：{}，错误信息：{}", port, e.getMessage());
 		}
 	}
 
@@ -104,11 +106,11 @@ public abstract class AbstractServer implements Server {
 		// 修改状态
 		running = false;
 		// 释放资源
-		if (ObjectUtils.isNotNull(boss)) {
+		if (ObjectUtil.isNotNull(boss)) {
 			boss.shutdownGracefully();
 		}
-		if (ObjectUtils.isNotNull(work)) {
-			work.shutdownGracefully();
+		if (ObjectUtil.isNotNull(worker)) {
+			worker.shutdownGracefully();
 		}
 		log.info("优雅关闭，释放资源");
 	}

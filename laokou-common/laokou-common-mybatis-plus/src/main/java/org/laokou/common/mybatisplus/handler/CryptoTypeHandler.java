@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package org.laokou.common.mybatisplus.handler;
 
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.TypeHandler;
-import org.laokou.common.crypto.utils.AesUtil;
+import org.laokou.common.crypto.utils.AESUtil;
 import org.laokou.common.i18n.utils.StringUtil;
 import org.springframework.stereotype.Component;
 
@@ -28,7 +28,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import static org.laokou.common.i18n.common.StringConstant.EMPTY;
+import static org.laokou.common.i18n.common.constant.StringConstant.EMPTY;
 
 /**
  * @author laokou
@@ -40,7 +40,7 @@ public class CryptoTypeHandler implements TypeHandler<String> {
 	public void setParameter(PreparedStatement preparedStatement, int parameterIndex, String content, JdbcType jdbcType)
 			throws SQLException {
 		if (StringUtil.isNotEmpty(content)) {
-			content = AesUtil.encrypt(content);
+			content = AESUtil.encrypt(content);
 		}
 		preparedStatement.setString(parameterIndex, content);
 	}
@@ -51,7 +51,7 @@ public class CryptoTypeHandler implements TypeHandler<String> {
 		if (StringUtil.isEmpty(data)) {
 			return EMPTY;
 		}
-		return AesUtil.decrypt(data.trim());
+		return AESUtil.decrypt(data.trim());
 	}
 
 	@Override
@@ -60,7 +60,7 @@ public class CryptoTypeHandler implements TypeHandler<String> {
 		if (StringUtil.isEmpty(data)) {
 			return EMPTY;
 		}
-		return AesUtil.decrypt(data.trim());
+		return AESUtil.decrypt(data.trim());
 	}
 
 	@Override
@@ -69,7 +69,7 @@ public class CryptoTypeHandler implements TypeHandler<String> {
 		if (StringUtil.isEmpty(data)) {
 			return EMPTY;
 		}
-		return AesUtil.decrypt(data.trim());
+		return AESUtil.decrypt(data.trim());
 	}
 
 }

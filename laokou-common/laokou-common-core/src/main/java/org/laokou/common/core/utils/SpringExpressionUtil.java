@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,12 +26,15 @@ import org.springframework.expression.spel.support.StandardEvaluationContext;
  *
  * @author laokou
  */
-public class SpringExpressionUtil {
+public final class SpringExpressionUtil {
 
 	/**
 	 * 解析器.
 	 */
 	private static final ExpressionParser PARSER = new SpelExpressionParser();
+
+	private SpringExpressionUtil() {
+	}
 
 	/**
 	 * 解析字符串.
@@ -47,7 +50,6 @@ public class SpringExpressionUtil {
 		for (int i = 0; i < parameterNames.length; i++) {
 			context.setVariable(parameterNames[i], args[i]);
 		}
-		PARSER.parseExpression(key).getValue(context, clazz);
 		return PARSER.parseExpression(key).getValue(context, clazz);
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,8 @@
 package org.laokou.auth.config;
 
 import lombok.RequiredArgsConstructor;
-import org.laokou.common.i18n.utils.ObjectUtils;
+import org.laokou.common.i18n.utils.ObjectUtil;
+import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.boot.context.properties.PropertyMapper;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
@@ -34,6 +35,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Maps to Authorization Server types.
@@ -42,11 +44,13 @@ import java.util.List;
  * @author Steve Riesenberg
  * @author laokou
  */
-@Component("propertiesMapper")
 @RequiredArgsConstructor
-public final class OAuth2AuthorizationServerPropertiesMapper {
+@Component("propertiesMapper")
+final class OAuth2AuthorizationServerPropertiesMapper {
 
 	private final OAuth2AuthorizationServerProperties properties;
+
+	private final ServerProperties serverProperties;
 
 	AuthorizationServerSettings asAuthorizationServerSettings() {
 		PropertyMapper map = PropertyMapper.get().alwaysApplyingWhenNonNull();
@@ -54,6 +58,7 @@ public final class OAuth2AuthorizationServerPropertiesMapper {
 		OAuth2AuthorizationServerProperties.OidcEndpoint oidc = endpoint.getOidc();
 		AuthorizationServerSettings.Builder builder = AuthorizationServerSettings.builder();
 		map.from(this.properties::getIssuer).to(builder::issuer);
+		map.from(this.properties::isMultipleIssuersAllowed).to(builder::multipleIssuersAllowed);
 		map.from(endpoint::getAuthorizationUri).to(builder::authorizationEndpoint);
 		map.from(endpoint::getDeviceAuthorizationUri).to(builder::deviceAuthorizationEndpoint);
 		map.from(endpoint::getDeviceVerificationUri).to(builder::deviceVerificationEndpoint);
@@ -68,8 +73,9 @@ public final class OAuth2AuthorizationServerPropertiesMapper {
 	}
 
 	List<RegisteredClient> asRegisteredClients() {
-		List<RegisteredClient> registeredClients = new ArrayList<>();
-		this.properties.getClient()
+		Map<String, OAuth2AuthorizationServerProperties.Client> clientMap = this.properties.getClient();
+		List<RegisteredClient> registeredClients = new ArrayList<>(clientMap.size());
+		clientMap
 			.forEach((registrationId, client) -> registeredClients.add(getRegisteredClient(registrationId, client)));
 		return registeredClients;
 	}
@@ -128,13 +134,14 @@ public final class OAuth2AuthorizationServerPropertiesMapper {
 		map.from(token::getIdTokenSignatureAlgorithm)
 			.as(this::signatureAlgorithm)
 			.to(builder::idTokenSignatureAlgorithm);
-		return builder.build();
+		return serverProperties.getSsl().isEnabled() ? builder.x509CertificateBoundAccessTokens(true).build()
+				: builder.build();
 	}
 
 	private JwsAlgorithm jwsAlgorithm(String signingAlgorithm) {
 		String name = signingAlgorithm.toUpperCase();
 		JwsAlgorithm jwsAlgorithm = SignatureAlgorithm.from(name);
-		if (ObjectUtils.isNull(jwsAlgorithm)) {
+		if (ObjectUtil.isNull(jwsAlgorithm)) {
 			jwsAlgorithm = MacAlgorithm.from(name);
 		}
 		return jwsAlgorithm;

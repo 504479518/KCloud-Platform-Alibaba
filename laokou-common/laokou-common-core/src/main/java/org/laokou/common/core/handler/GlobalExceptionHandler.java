@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import jakarta.validation.ValidationException;
 import lombok.extern.slf4j.Slf4j;
 import org.laokou.common.i18n.common.exception.*;
 import org.laokou.common.i18n.dto.Result;
-import org.laokou.common.i18n.utils.ObjectUtils;
+import org.laokou.common.i18n.utils.ObjectUtil;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -35,9 +35,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * @author laokou
  */
 @Slf4j
-@RestControllerAdvice
-@ResponseBody
 @Component
+@ResponseBody
+@RestControllerAdvice
 public class GlobalExceptionHandler {
 
 	/**
@@ -48,17 +48,6 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(SystemException.class)
 	public Result<?> handle(SystemException ex) {
 		log.error("系统异常，错误码：{}，错误信息：{}", ex.getCode(), ex.getMsg());
-		return Result.fail(ex.getCode(), ex.getMsg());
-	}
-
-	/**
-	 * 异常处理并响应.
-	 * @param ex 异常
-	 * @return 响应结果
-	 */
-	@ExceptionHandler(AuthException.class)
-	public Result<?> handle(AuthException ex) {
-		log.error("认证异常，错误码：{}，错误信息：{}", ex.getCode(), ex.getMsg());
 		return Result.fail(ex.getCode(), ex.getMsg());
 	}
 
@@ -93,7 +82,7 @@ public class GlobalExceptionHandler {
 	public Result<?> handle(Exception ex) {
 		if (ex instanceof MethodArgumentNotValidException mane) {
 			FieldError fieldError = mane.getFieldError();
-			if (ObjectUtils.isNotNull(fieldError)) {
+			if (ObjectUtil.isNotNull(fieldError)) {
 				return Result.fail(fieldError.getCode(), fieldError.getDefaultMessage());
 			}
 		}

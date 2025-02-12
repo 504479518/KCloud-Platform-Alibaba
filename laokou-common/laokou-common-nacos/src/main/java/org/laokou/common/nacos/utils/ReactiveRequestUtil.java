@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,12 @@ import org.laokou.common.i18n.utils.StringUtil;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.util.AntPathMatcher;
+import org.springframework.util.StringUtils;
 
 import java.util.Map;
 import java.util.Set;
 
-import static org.laokou.common.i18n.common.StringConstant.EMPTY;
+import static org.laokou.common.i18n.common.constant.StringConstant.EMPTY;
 
 /**
  * 响应式请求工具类.
@@ -77,7 +78,8 @@ public class ReactiveRequestUtil {
 	 * @return 请求格式
 	 */
 	public static MediaType getContentType(ServerHttpRequest request) {
-		return request.getHeaders().getContentType();
+		String value = request.getHeaders().getFirst("content-type");
+		return StringUtils.hasLength(value) ? MediaType.parseMediaType(value) : null;
 	}
 
 	/**
@@ -93,11 +95,11 @@ public class ReactiveRequestUtil {
 	 * 路径匹配.
 	 * @param requestMethod 请求方法
 	 * @param requestURL 请求路径URL
-	 * @param urlMap url集合
+	 * @param uriMap uri集合
 	 * @return 匹配结果
 	 */
-	public static boolean pathMatcher(String requestMethod, String requestURL, Map<String, Set<String>> urlMap) {
-		Set<String> urls = urlMap.get(requestMethod);
+	public static boolean pathMatcher(String requestMethod, String requestURL, Map<String, Set<String>> uriMap) {
+		Set<String> urls = uriMap.get(requestMethod);
 		if (CollectionUtil.isEmpty(urls)) {
 			return false;
 		}

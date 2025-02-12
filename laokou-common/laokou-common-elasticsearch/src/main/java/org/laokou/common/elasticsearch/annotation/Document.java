@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 package org.laokou.common.elasticsearch.annotation;
 
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -28,7 +27,6 @@ import java.util.List;
  * @author laokou
  */
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class Document {
@@ -59,6 +57,10 @@ public class Document {
 		private boolean fielddata;
 
 		private boolean eagerGlobalOrdinals;
+
+		private String format;
+
+		private boolean index;
 
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,14 +30,14 @@ import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
 import org.laokou.common.i18n.dto.PageQuery;
-import org.laokou.common.i18n.utils.ObjectUtils;
+import org.laokou.common.i18n.utils.ObjectUtil;
 import org.laokou.common.i18n.utils.StringUtil;
 import org.laokou.common.mybatisplus.utils.SqlUtil;
 
 import java.util.Map;
 
-import static org.laokou.common.i18n.common.StringConstant.EMPTY;
-import static org.laokou.common.i18n.common.StringConstant.SINGLE_QUOT;
+import static org.laokou.common.i18n.common.constant.StringConstant.EMPTY;
+import static org.laokou.common.i18n.common.constant.StringConstant.SINGLE_QUOT;
 import static org.laokou.common.i18n.dto.PageQuery.PAGE_QUERY;
 
 /**
@@ -52,12 +52,9 @@ public class DataFilterInterceptor implements InnerInterceptor {
 		if (parameter instanceof Map<?, ?> map) {
 			try {
 				Object obj = map.get(PAGE_QUERY);
-				if (ObjectUtils.isNotNull(obj)) {
+				if (ObjectUtil.isNotNull(obj)) {
 					// 获取aop拼接的sql
 					PageQuery pageQuery = (PageQuery) obj;
-					if (pageQuery.isIgnore()) {
-						return;
-					}
 					String sqlFilter = pageQuery.getSqlFilter();
 					if (StringUtil.isEmpty(sqlFilter)) {
 						return;
@@ -66,7 +63,7 @@ public class DataFilterInterceptor implements InnerInterceptor {
 					PlainSelect plainSelect = SqlUtil.plainSelect(boundSql.getSql());
 					// 获取where
 					Expression expression = plainSelect.getWhere();
-					if (ObjectUtils.isNull(expression)) {
+					if (ObjectUtil.isNull(expression)) {
 						plainSelect.setWhere(new StringValue(sqlFilter));
 					}
 					else {

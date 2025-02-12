@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,48 +17,19 @@
 
 package org.laokou.common.sensitive.utils;
 
-import org.laokou.common.i18n.utils.ObjectUtils;
 import org.laokou.common.i18n.utils.StringUtil;
-import org.laokou.common.sensitive.annotation.SensitiveField;
-import org.laokou.common.i18n.common.SensitiveTypeEnum;
 
-import java.lang.reflect.Field;
-
-import static org.laokou.common.i18n.common.StringConstant.*;
+import static org.laokou.common.i18n.common.constant.StringConstant.*;
 
 /**
  * @author laokou
  */
-public class SensitiveUtil {
+public final class SensitiveUtil {
 
-	public static void transform(Object obj) throws IllegalAccessException {
-		Field[] fields = obj.getClass().getDeclaredFields();
-		for (Field field : fields) {
-			boolean annotationPresent = field.isAnnotationPresent(SensitiveField.class);
-			if (annotationPresent) {
-				// 私有属性
-				field.setAccessible(true);
-				Object o = field.get(obj);
-				if (ObjectUtils.isNull(o)) {
-					continue;
-				}
-				String data = o.toString();
-				SensitiveField sensitiveField = field.getAnnotation(SensitiveField.class);
-				data = format(sensitiveField.type(), data);
-				// 属性赋值
-				field.set(obj, data);
-			}
-		}
+	private SensitiveUtil() {
 	}
 
-	public static String format(SensitiveTypeEnum sensitiveTypeEnum, String str) {
-		return switch (sensitiveTypeEnum) {
-			case MAIL -> formatMail(str);
-			case MOBILE -> formatMobile(str);
-		};
-	}
-
-	private static String formatMail(String mail) {
+	public static String formatMail(String mail) {
 		if (StringUtil.isEmpty(mail)) {
 			return EMPTY;
 		}
@@ -66,22 +37,27 @@ public class SensitiveUtil {
 		if (index == -1) {
 			return mail;
 		}
-		String begin = mail.substring(0, 1);
-		String end = mail.substring(index);
-		return begin + START_START + START_START + end;
+		String str = mail.substring(index);
+		return getStar(mail.length() - str.length()).concat(str);
 	}
 
-	private static String formatMobile(String mobile) {
-		if (StringUtil.isEmpty(mobile)) {
+	public static String formatMobile(String mobile) {
+		return formatStr(mobile, 11, 3, 6);
+	}
+
+	public static String formatStr(String s, int length, int start, int end) {
+		if (StringUtil.isEmpty(s)) {
 			return EMPTY;
 		}
-		int mobileLen = 11;
-		if (mobile.length() != mobileLen) {
-			return mobile;
+		if (s.length() != length) {
+			return s;
 		}
-		String begin = mobile.substring(0, 3);
-		String end = mobile.substring(7);
-		return begin + START_START + START_START + end;
+		String str = s.substring(start, end + 1);
+		return s.replace(str, getStar(end - start));
+	}
+
+	private static String getStar(int len) {
+		return START.repeat(Math.max(0, len));
 	}
 
 }

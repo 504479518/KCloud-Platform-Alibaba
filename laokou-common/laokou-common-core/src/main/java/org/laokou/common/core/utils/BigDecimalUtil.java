@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -113,44 +113,14 @@ public final class BigDecimalUtil {
 	}
 
 	/**
-	 * 提供精确的类型转换(Float).
-	 * @param v 需要被转换的数字
-	 * @return 返回转换结果
-	 */
-	public static float convertToFloat(double v) {
-		BigDecimal b = new BigDecimal(v);
-		return b.floatValue();
-	}
-
-	/**
-	 * 提供精确的类型转换(Int)不进行四舍五入.
-	 * @param v 需要被转换的数字
-	 * @return 返回转换结果
-	 */
-	public static int convertsToInt(double v) {
-		BigDecimal b = new BigDecimal(v);
-		return b.intValue();
-	}
-
-	/**
-	 * 提供精确的类型转换(Long).
-	 * @param v 需要被转换的数字
-	 * @return 返回转换结果
-	 */
-	public static long convertsToLong(double v) {
-		BigDecimal b = new BigDecimal(v);
-		return b.longValue();
-	}
-
-	/**
 	 * 返回两个数中大的一个值.
 	 * @param v1 需要被对比的第一个数
 	 * @param v2 需要被对比的第二个数
 	 * @return 返回两个数中大的一个值
 	 */
 	public static double returnMax(double v1, double v2) {
-		BigDecimal b1 = new BigDecimal(v1);
-		BigDecimal b2 = new BigDecimal(v2);
+		BigDecimal b1 = BigDecimal.valueOf(v1);
+		BigDecimal b2 = BigDecimal.valueOf(v2);
 		return b1.max(b2).doubleValue();
 	}
 
@@ -161,8 +131,8 @@ public final class BigDecimalUtil {
 	 * @return 返回两个数中小的一个值
 	 */
 	public static double returnMin(double v1, double v2) {
-		BigDecimal b1 = new BigDecimal(v1);
-		BigDecimal b2 = new BigDecimal(v2);
+		BigDecimal b1 = BigDecimal.valueOf(v1);
+		BigDecimal b2 = BigDecimal.valueOf(v2);
 		return b1.min(b2).doubleValue();
 	}
 

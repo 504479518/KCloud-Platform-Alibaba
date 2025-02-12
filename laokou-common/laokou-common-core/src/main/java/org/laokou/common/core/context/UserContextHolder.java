@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,24 +18,26 @@
 package org.laokou.common.core.context;
 
 import com.alibaba.ttl.TransmittableThreadLocal;
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.Optional;
-
-import static lombok.AccessLevel.PRIVATE;
 
 /**
  * 用户上下文.
  *
  * @author laokou
  */
-public class UserContextHolder {
+public final class UserContextHolder {
 
 	/**
 	 * 用户上下文本地线程变量.
 	 */
 	private static final ThreadLocal<User> USER_LOCAL = new TransmittableThreadLocal<>();
+
+	private UserContextHolder() {
+	}
 
 	/**
 	 * 注销本地线程变量.
@@ -60,30 +62,33 @@ public class UserContextHolder {
 		USER_LOCAL.set(user);
 	}
 
+	/**
+	 * 用户.
+	 */
 	@Data
-	@Builder
-	@AllArgsConstructor(access = PRIVATE)
-	@NoArgsConstructor(access = PRIVATE)
-	@Schema(name = "User", description = "用户")
+	@NoArgsConstructor
+	@AllArgsConstructor
 	public static class User {
 
-		@Schema(name = "id", description = "ID")
+		/**
+		 * ID.
+		 */
 		private Long id;
 
-		@Schema(name = "username", description = "用户名")
+		/**
+		 * 用户名.
+		 */
 		private String username;
 
-		@Schema(name = "tenantId", description = "租户ID")
+		/**
+		 * 租户ID.
+		 */
 		private Long tenantId;
 
-		@Schema(name = "deptPath", description = "部门PATH")
-		private String deptPath;
-
-		@Schema(name = "deptId", description = "部门ID")
-		private Long deptId;
-
-		@Schema(name = "sourceName", description = "数据源名称")
-		private String sourceName;
+		/**
+		 * 数据源前缀.
+		 */
+		private String sourcePrefix;
 
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 package org.laokou.common.mybatisplus.config;
 
 import com.baomidou.mybatisplus.extension.plugins.handler.TableNameHandler;
-import io.swagger.v3.oas.annotations.media.Schema;
 import org.laokou.common.mybatisplus.context.DynamicTableSuffixContextHolder;
 
 /**
@@ -26,7 +25,9 @@ import org.laokou.common.mybatisplus.context.DynamicTableSuffixContextHolder;
  */
 public class DynamicTableNameHandler implements TableNameHandler {
 
-	@Schema(name = "PLACE_HOLDER", description = "分表标识符")
+	/**
+	 * 分表标识符.
+	 */
 	public static final String PLACE_HOLDER = "$$";
 
 	@Override

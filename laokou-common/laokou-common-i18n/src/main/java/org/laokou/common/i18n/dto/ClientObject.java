@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,13 @@
 
 package org.laokou.common.i18n.dto;
 
-import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * This is the object communicate with Client. The clients could be view layer or other
@@ -28,10 +31,27 @@ import java.io.Serializable;
  *
  * @author fulan.zjf 2017-10-27 PM 12:19:15
  */
-@Schema(name = "ClientObject", description = "客户端通信对象")
+@Setter
+@Getter
 public abstract class ClientObject implements Serializable {
 
 	@Serial
 	private static final long serialVersionUID = 1L;
+
+	/**
+	 * This is for extended values。
+	 */
+	protected Map<String, Object> extValues = new HashMap<>();
+
+	public Object getExtField(String key) {
+		if (extValues != null) {
+			return extValues.get(key);
+		}
+		return null;
+	}
+
+	public void putExtField(String fieldName, Object value) {
+		this.extValues.put(fieldName, value);
+	}
 
 }

@@ -1,0 +1,23 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: cimg/openjdk:21.0.6
+
+    environment:
+      JVM_OPTS: -Xmx2048m
+      TERM: dumb
+
+    steps:
+      - checkout
+      - run: mvn clean install -P prod -DskipTests -B
+      - checkout
+      - run: |
+          cd laokou-gradle
+          chmod +x gradlew
+          ./gradlew build
+workflows:
+  maven-build:
+    jobs:
+      - build

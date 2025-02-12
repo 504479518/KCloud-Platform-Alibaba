@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,24 +20,19 @@ package org.laokou.common.idempotent.aop;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.aspectj.lang.annotation.After;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.annotation.Before;
 import org.laokou.common.core.utils.RequestUtil;
-import org.laokou.common.core.utils.ResourceUtil;
+import org.laokou.common.i18n.common.exception.SystemException;
 import org.laokou.common.i18n.utils.StringUtil;
 import org.laokou.common.idempotent.utils.IdempotentUtil;
-import org.laokou.common.redis.utils.RedisKeyUtil;
+import org.laokou.common.i18n.utils.RedisKeyUtil;
 import org.laokou.common.redis.utils.RedisUtil;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-
-import static org.laokou.common.i18n.common.TraceConstant.REQUEST_ID;
+import static org.laokou.common.i18n.common.constant.TraceConstant.REQUEST_ID;
+import static org.laokou.common.redis.utils.RedisUtil.FIVE_MINUTE_EXPIRE;
 
 /**
  * 幂等性Aop.
@@ -52,33 +47,26 @@ public class IdempotentAop {
 
 	private final RedisUtil redisUtil;
 
-	private static final DefaultRedisScript<Boolean> REDIS_SCRIPT;
-
-	static {
-		try (InputStream inputStream = ResourceUtil.getResource("META-INF/scripts/idempotent.lua").getInputStream()) {
-			REDIS_SCRIPT = new DefaultRedisScript<>(new String(inputStream.readAllBytes(), StandardCharsets.UTF_8),
-					Boolean.class);
-		}
-		catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-	}
-
-	@Before("@annotation(org.laokou.common.idempotent.annotation.Idempotent)")
-	public void doBefore() {
+	@Around("@annotation(org.laokou.common.idempotent.annotation.Idempotent)")
+	public Object doAround(ProceedingJoinPoint point) throws Throwable {
 		String requestId = getRequestId();
 		if (StringUtil.isEmpty(requestId)) {
-			throw new RuntimeException("提交失败，令牌不能为空");
+			throw new SystemException("S_Idempotent_RequestIDIsNull", "请求ID不能为空");
 		}
 		String apiIdempotentKey = RedisKeyUtil.getApiIdempotentKey(requestId);
-		Boolean result = redisUtil.execute(REDIS_SCRIPT, Collections.singletonList(apiIdempotentKey));
-		if (!result) {
-			throw new RuntimeException("不可重复提交请求");
+		if (!redisUtil.setIfAbsent(apiIdempotentKey, 0, FIVE_MINUTE_EXPIRE)) {
+			throw new SystemException("S_Idempotent_RequestRepeatedSubmit", "不可重复提交请求");
 		}
+		doBefore();
+		Object proceed = point.proceed();
+		doAfter();
+		return proceed;
+	}
+
+	public void doBefore() {
 		IdempotentUtil.openIdempotent();
 	}
 
-	@After("@annotation(org.laokou.common.idempotent.annotation.Idempotent)")
 	public void doAfter() {
 		IdempotentUtil.cleanIdempotent();
 	}

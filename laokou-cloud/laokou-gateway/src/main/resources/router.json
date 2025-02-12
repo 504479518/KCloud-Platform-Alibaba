@@ -33,7 +33,7 @@
       }
     ],
     "metadata": {
-      "version": "2.0"
+      "version": "v3"
     },
     "order": 1
   },
@@ -71,54 +71,24 @@
       }
     ],
     "metadata": {
-      "version": "2.0"
+      "version": "v3"
     },
     "order": 1
   },
   {
-    "id": "open-api",
-    "uri": "http://127.0.0.1:5555",
+    "id": "laokou-iot",
+    "uri": "lb://laokou-iot",
     "predicates": [
       {
         "name": "Path",
         "args": {
-          "pattern": "/v3/api-docs/**"
+          "pattern": "/iot/**"
         }
       },
       {
         "name": "Weight",
         "args": {
-          "_genkey_0": "open-api",
-          "_genkey_1": "100"
-        }
-      }
-    ],
-    "filters": [
-      {
-        "name": "RewritePath",
-        "args": {
-          "_genkey_0": "/v3/api-docs/(?<path>.*)",
-          "_genkey_1": "/$\\{path}/v3/api-docs"
-        }
-      }
-    ],
-    "metadata": {},
-    "order": 1
-  },
-  {
-    "id": "laokou-im",
-    "uri": "lb:wss://laokou-im",
-    "predicates": [
-      {
-        "name": "Path",
-        "args": {
-          "pattern": "/im/**"
-        }
-      },
-      {
-        "name": "Weight",
-        "args": {
-          "_genkey_0": "im",
+          "_genkey_0": "iot",
           "_genkey_1": "100"
         }
       }
@@ -133,30 +103,30 @@
       {
         "name": "RewritePath",
         "args": {
-          "_genkey_0": "/im/(?<path>.*)",
+          "_genkey_0": "/iot/(?<path>.*)",
           "_genkey_1": "/$\\{path}"
         }
       }
     ],
     "metadata": {
-      "version": "2.0"
+      "version": "v3"
     },
     "order": 1
   },
   {
-    "id": "laokou-flowable",
-    "uri": "lb://laokou-flowable",
+    "id": "laokou-generator",
+    "uri": "lb://laokou-generator",
     "predicates": [
       {
         "name": "Path",
         "args": {
-          "pattern": "/flowable/**"
+          "pattern": "/generator/**"
         }
       },
       {
         "name": "Weight",
         "args": {
-          "_genkey_0": "flowable",
+          "_genkey_0": "generator",
           "_genkey_1": "100"
         }
       }
@@ -171,13 +141,13 @@
       {
         "name": "RewritePath",
         "args": {
-          "_genkey_0": "/flowable/(?<path>.*)",
+          "_genkey_0": "/generator/(?<path>.*)",
           "_genkey_1": "/$\\{path}"
         }
       }
     ],
     "metadata": {
-      "version": "2.0"
+      "version": "v3"
     },
     "order": 1
   }

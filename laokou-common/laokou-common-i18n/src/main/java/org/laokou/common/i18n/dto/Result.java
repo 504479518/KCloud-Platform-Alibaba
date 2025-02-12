@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,62 +19,51 @@ package org.laokou.common.i18n.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
-import org.laokou.common.i18n.utils.MessageUtils;
-import org.laokou.common.i18n.utils.ObjectUtils;
+import org.laokou.common.i18n.utils.MessageUtil;
+import org.laokou.common.i18n.utils.ObjectUtil;
 
 import java.io.Serial;
+import java.io.Serializable;
 
-import static org.laokou.common.i18n.common.StatusCode.OK;
+import static org.laokou.common.i18n.common.exception.StatusCode.OK;
 
 /**
  * @author laokou
  */
 @Data
-@Schema(name = "Result", description = "请求响应统一格式")
-public class Result<T> extends DTO {
+@Schema(name = "请求响应统一格式", description = "请求响应统一格式")
+public class Result<T> implements Serializable {
 
 	@Serial
 	private static final long serialVersionUID = -1286769110881865369L;
 
-	@Schema(name = "code", description = "状态编码", example = "OK")
+	@Schema(name = "状态标识", description = "状态标识", example = "OK")
 	private String code;
 
-	@Schema(name = "msg", description = "响应描述", example = "请求成功")
+	@Schema(name = "响应描述", description = "响应描述", example = "请求成功")
 	private String msg;
 
-	@Schema(name = "data", description = "响应结果")
+	@Schema(name = "响应结果", description = "响应结果")
 	private T data;
 
-	@Schema(name = "traceId", description = "链路ID")
+	@Schema(name = "链路ID", description = "链路ID")
 	private String traceId;
 
-	public boolean success() {
-		return ObjectUtils.equals(this.code, OK);
-	}
+	@Schema(name = "标签ID", description = "标签ID")
+	private String spanId;
 
-	public boolean error() {
-		return !success();
-	}
-
-	public static <T> Result<T> of(T data) {
+	public static <T> Result<T> ok(T data) {
 		Result<T> result = new Result<>();
 		result.setData(data);
 		result.setCode(OK);
-		result.setMsg(MessageUtils.getMessage(OK));
-		return result;
-	}
-
-	public static <T> Result<T> of(String code, String msg) {
-		Result<T> result = new Result<>();
-		result.setCode(code);
-		result.setMsg(msg);
+		result.setMsg(MessageUtil.getMessage(OK));
 		return result;
 	}
 
 	public static <T> Result<T> fail(String code) {
 		Result<T> result = new Result<>();
 		result.setCode(code);
-		result.setMsg(MessageUtils.getMessage(code));
+		result.setMsg(MessageUtil.getMessage(code));
 		return result;
 	}
 
@@ -83,6 +72,14 @@ public class Result<T> extends DTO {
 		result.setCode(code);
 		result.setMsg(msg);
 		return result;
+	}
+
+	public boolean success() {
+		return ObjectUtil.equals(this.code, OK);
+	}
+
+	public boolean error() {
+		return !success();
 	}
 
 }

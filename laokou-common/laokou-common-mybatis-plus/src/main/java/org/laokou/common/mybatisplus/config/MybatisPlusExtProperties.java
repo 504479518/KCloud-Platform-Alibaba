@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,23 +21,20 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
-
-import static com.baomidou.mybatisplus.core.toolkit.Constants.MYBATIS_PLUS;
 
 /**
  * @author laokou
  */
 @Data
 @Component
-@ConfigurationProperties(prefix = MYBATIS_PLUS)
+@ConfigurationProperties(prefix = "mybatis-plus")
 public class MybatisPlusExtProperties {
 
-	private SlowSql slowSql = new SlowSql();
-
 	private Tenant tenant = new Tenant();
+
+	private SqlMonitor sqlMonitor = new SqlMonitor();
 
 	@Data
 	public static class Tenant {
@@ -49,11 +46,11 @@ public class MybatisPlusExtProperties {
 	}
 
 	@Data
-	public static class SlowSql {
+	public static class SqlMonitor {
 
-		private boolean enabled = false;
+		private boolean enabled = true;
 
-		private Duration millis = Duration.ofMillis(500);
+		private long interval = 0;
 
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,25 @@ package org.laokou.common.core.utils;
 
 import org.springframework.util.ObjectUtils;
 
+import java.util.Arrays;
+
 /**
  * 数据工具类.
  *
  * @author laokou
  */
-public class ArrayUtil {
+public final class ArrayUtil {
+
+	private ArrayUtil() {
+	}
+
+	public static boolean isNotEmpty(byte[] array) {
+		return !isEmpty(array);
+	}
+
+	public static boolean isEmpty(byte[] array) {
+		return array == null || Arrays.equals(array, new byte[0]);
+	}
 
 	/**
 	 * 判断数组不为空.

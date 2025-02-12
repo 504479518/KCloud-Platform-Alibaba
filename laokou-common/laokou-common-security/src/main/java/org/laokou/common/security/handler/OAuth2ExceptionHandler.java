@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,12 @@
 
 package org.laokou.common.security.handler;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.SneakyThrows;
 import org.laokou.common.core.utils.ResponseUtil;
-import org.laokou.common.i18n.common.StatusCode;
+import org.laokou.common.i18n.common.exception.StatusCode;
 import org.laokou.common.i18n.dto.Result;
-import org.laokou.common.i18n.utils.MessageUtils;
+import org.laokou.common.i18n.utils.MessageUtil;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -35,38 +33,38 @@ import org.springframework.security.oauth2.core.OAuth2Error;
  */
 public class OAuth2ExceptionHandler {
 
-	@Schema(name = "ERROR_URL", description = "错误地址")
 	public static final String ERROR_URL = "https://datatracker.ietf.org/doc/html/rfc6749#section-5.2";
 
-	public static OAuth2AuthenticationException getException(String code, String desc, String uri) {
-		return new OAuth2AuthenticationException(new OAuth2Error(code, desc, uri));
+	public static OAuth2AuthenticationException getOAuth2AuthenticationException(String code, String message,
+			String uri) {
+		return new OAuth2AuthenticationException(new OAuth2Error(code, message, uri));
 	}
 
 	public static OAuth2AuthenticationException getException(String code, String uri) {
-		return getException(code, MessageUtils.getMessage(code), uri);
+		return getOAuth2AuthenticationException(code, MessageUtil.getMessage(code), uri);
 	}
 
 	public static OAuth2AuthenticationException getException(String code) {
-		return getException(code, MessageUtils.getMessage(code), ERROR_URL);
+		return getOAuth2AuthenticationException(code, MessageUtil.getMessage(code), ERROR_URL);
 	}
 
 	@SneakyThrows
-	public static void handleAccessDenied(HttpServletRequest request, HttpServletResponse response, Throwable ex) {
+	public static void handleAccessDenied(HttpServletResponse response, Throwable ex) {
 		if (ex instanceof AccessDeniedException) {
-			ResponseUtil.response(response, Result.fail(StatusCode.FORBIDDEN));
+			ResponseUtil.responseOk(response, Result.fail(StatusCode.FORBIDDEN));
 		}
 	}
 
 	@SneakyThrows
-	public static void handleAuthentication(HttpServletRequest request, HttpServletResponse response, Throwable ex) {
+	public static void handleAuthentication(HttpServletResponse response, Throwable ex) {
 		if (ex instanceof OAuth2AuthenticationException authenticationException) {
 			String msg = authenticationException.getError().getDescription();
 			String code = authenticationException.getError().getErrorCode();
-			ResponseUtil.response(response, Result.fail(code, msg));
+			ResponseUtil.responseOk(response, Result.fail(code, msg));
 			return;
 		}
 		if (ex instanceof InsufficientAuthenticationException) {
-			ResponseUtil.response(response, Result.fail(StatusCode.UNAUTHORIZED));
+			ResponseUtil.responseOk(response, Result.fail(StatusCode.UNAUTHORIZED));
 		}
 	}
 

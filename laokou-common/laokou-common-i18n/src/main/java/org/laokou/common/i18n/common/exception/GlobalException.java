@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,20 @@
 
 package org.laokou.common.i18n.common.exception;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Data;
-import org.laokou.common.i18n.utils.MessageUtils;
+import lombok.Getter;
+import lombok.Setter;
+import org.laokou.common.i18n.utils.MessageUtil;
 
 import java.io.Serial;
 
 /**
+ * 全局异常.
+ *
  * @author laokou
  */
-@Data
-@Schema(name = "GlobalException", description = "全局异常")
-abstract class GlobalException extends RuntimeException {
+@Getter
+@Setter
+public abstract class GlobalException extends RuntimeException {
 
 	@Serial
 	private static final long serialVersionUID = 4102669900127613541L;
@@ -39,10 +41,16 @@ abstract class GlobalException extends RuntimeException {
 
 	protected GlobalException(String code) {
 		this.code = code;
-		this.msg = MessageUtils.getMessage(code);
+		this.msg = MessageUtil.getMessage(code);
 	}
 
 	protected GlobalException(String code, String msg) {
+		this.code = code;
+		this.msg = msg;
+	}
+
+	protected GlobalException(String code, String msg, Throwable throwable) {
+		super(msg, throwable);
 		this.code = code;
 		this.msg = msg;
 	}

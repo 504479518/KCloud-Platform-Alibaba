@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,29 +17,32 @@
 
 package org.laokou.common.trace.aop;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.ThreadContext;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.laokou.common.i18n.dto.Result;
+import org.laokou.common.trace.utils.TraceUtil;
 import org.springframework.stereotype.Component;
-
-import static org.laokou.common.i18n.common.TraceConstant.TRACE_ID;
 
 /**
  * @author laokou
  */
-@Component
-@Aspect
 @Slf4j
+@Aspect
+@Component
+@RequiredArgsConstructor
 public class TraceLogAop {
+
+	private final TraceUtil traceUtil;
 
 	@Around("@annotation(org.laokou.common.trace.annotation.TraceLog)")
 	public Object doAround(ProceedingJoinPoint point) throws Throwable {
 		Object proceed = point.proceed();
 		if (proceed instanceof Result<?> result) {
-			result.setTraceId(ThreadContext.get(TRACE_ID));
+			result.setTraceId(traceUtil.getTraceId());
+			result.setSpanId(traceUtil.getSpanId());
 			return result;
 		}
 		return proceed;

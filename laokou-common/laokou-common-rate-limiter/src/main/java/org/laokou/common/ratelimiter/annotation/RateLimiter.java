@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,12 @@
 
 package org.laokou.common.ratelimiter.annotation;
 
-import org.laokou.common.ratelimiter.driver.spi.RateLimiterTypeEnum;
-import org.redisson.api.RateIntervalUnit;
+import org.laokou.common.ratelimiter.aop.Type;
 import org.redisson.api.RateType;
 
 import java.lang.annotation.*;
 
-import static org.laokou.common.ratelimiter.driver.spi.RateLimiterTypeEnum.DEFAULT;
-import static org.redisson.api.RateIntervalUnit.SECONDS;
+import static org.laokou.common.ratelimiter.aop.Type.DEFAULT;
 import static org.redisson.api.RateType.OVERALL;
 
 /**
@@ -38,7 +36,7 @@ public @interface RateLimiter {
 	/**
 	 * 标识.
 	 */
-	String id();
+	String key();
 
 	/**
 	 * 令牌速率.
@@ -46,19 +44,19 @@ public @interface RateLimiter {
 	long rate() default 1;
 
 	/**
-	 * 过期时间.
+	 * 过期时间，单位秒.
 	 */
 	long interval() default 1;
 
 	/**
-	 * 类型.
+	 * 失效时间，单位秒.
 	 */
-	RateLimiterTypeEnum type() default DEFAULT;
+	long ttl() default 3600;
 
 	/**
-	 * 单位.
+	 * 类型.
 	 */
-	RateIntervalUnit unit() default SECONDS;
+	Type type() default DEFAULT;
 
 	/**
 	 * 样式 OVERALL -> 所有实例共享 PER_CLIENT -> 单个实例共享.

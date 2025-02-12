@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,11 @@
 
 package org.laokou.common.i18n.common.exception;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-
 /**
+ * 业务异常.
+ *
  * @author laokou
  */
-@Schema(name = "BizException", description = "业务异常")
 public final class BizException extends GlobalException {
 
 	public BizException(String code) {
@@ -31,6 +30,10 @@ public final class BizException extends GlobalException {
 
 	public BizException(String code, String msg) {
 		super(code, msg);
+	}
+
+	public BizException(String code, String msg, Throwable throwable) {
+		super(code, msg, throwable);
 	}
 
 }

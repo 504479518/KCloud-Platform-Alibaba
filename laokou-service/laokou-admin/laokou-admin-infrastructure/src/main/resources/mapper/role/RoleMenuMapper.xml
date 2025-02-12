@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
- /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+/*
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,36 +18,21 @@
  */
 -->
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="org.laokou.admin.gatewayimpl.database.RoleMenuMapper">
-    <sql id="columns">
-        `id`,
-        creator,
-        editor,
-        create_date,
-        update_date,
-        dept_id,
-        dept_path,
-        tenant_id,
-        role_id,
-        menu_id
-    </sql>
-    <insert id="insertOne" useGeneratedKeys="false">
-        insert into boot_sys_role_menu(<include refid="columns"/>)
-        values (
-        #{id},
-        #{creator},
-        #{editor},
-        #{createDate},
-        #{updateDate},
-        #{deptId},
-        #{deptPath},
-        #{tenantId},
-        #{roleId},
-        #{menuId}
-        )
-    </insert>
-    <delete id="deleteByRoleId">
-        delete from boot_sys_role_menu
-        where role_id = #{roleId}
-    </delete>
+<mapper namespace="org.laokou.admin.role.gatewayimpl.database.RoleMenuMapper">
+
+  <delete id="deleteObjById">
+    delete from boot_sys_role_menu where id = #{roleMenuDO.id}
+  </delete>
+
+  <select id="selectIdsByRoleId" resultType="java.lang.Long">
+    select id
+    from boot_sys_role_menu
+    where role_id = #{roleId}
+  </select>
+
+  <select id="selectMenuIdsByRoleId" resultType="java.lang.String">
+    select menu_id
+    from boot_sys_role_menu
+    where role_id = #{roleId}
+  </select>
 </mapper>

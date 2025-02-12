@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,78 +24,72 @@ import org.aspectj.lang.Signature;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.laokou.common.core.utils.IdGenerator;
+import org.laokou.common.core.utils.SpringExpressionUtil;
 import org.laokou.common.i18n.common.exception.SystemException;
-import org.laokou.common.i18n.utils.LogUtil;
-import org.laokou.common.i18n.utils.ObjectUtils;
+import org.laokou.common.i18n.utils.StringUtil;
 import org.laokou.common.lock.Lock;
-import org.laokou.common.lock.TypeEnum;
 import org.laokou.common.lock.RedissonLock;
+import org.laokou.common.lock.Type;
 import org.laokou.common.lock.annotation.Lock4j;
 import org.laokou.common.redis.utils.RedisUtil;
-import org.springframework.core.annotation.AnnotationUtils;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
-import org.springframework.util.Assert;
 
-import java.lang.reflect.Method;
-
-import static org.laokou.common.i18n.common.PropertiesConstant.SPRING_APPLICATION_NAME;
-import static org.laokou.common.i18n.common.StatusCode.TOO_MANY_REQUESTS;
-import static org.laokou.common.i18n.common.StringConstant.UNDER;
+import static org.laokou.common.i18n.common.constant.StringConstant.UNDER;
+import static org.laokou.common.i18n.common.exception.StatusCode.TOO_MANY_REQUESTS;
 
 /**
  * 分布式锁切面.
  *
  * @author laokou
  */
-@Component
-@Aspect
 @Slf4j
+@Aspect
+@Component
 @RequiredArgsConstructor
 public class LockAop {
 
-	private final Environment environment;
-
 	private final RedisUtil redisUtil;
 
-	@Around("@annotation(org.laokou.common.lock.annotation.Lock4j)")
-	public Object doAround(ProceedingJoinPoint joinPoint) throws Throwable {
+	@Around("@annotation(lock4j)")
+	public Object doAround(ProceedingJoinPoint joinPoint, Lock4j lock4j) throws Throwable {
 		// 获取注解
 		Signature signature = joinPoint.getSignature();
 		MethodSignature methodSignature = (MethodSignature) signature;
-		Method method = methodSignature.getMethod();
-		Lock4j lock4j = AnnotationUtils.findAnnotation(method, Lock4j.class);
-		Assert.isTrue(ObjectUtils.isNotNull(lock4j), "@Lock4j is null");
-		String appName = UNDER;
-		if (lock4j.enable()) {
-			appName += environment.getProperty(SPRING_APPLICATION_NAME);
+		String[] parameterNames = methodSignature.getParameterNames();
+		String name = lock4j.name();
+		String key = lock4j.key();
+		if (StringUtil.isNotEmpty(key) && key.contains("#")) {
+			key = name + UNDER + SpringExpressionUtil.parse(key, parameterNames, joinPoint.getArgs(), String.class);
 		}
-		// key + 时间戳 + 应用名称
-		String key = lock4j.key() + IdGenerator.SystemClock.now() + appName;
-		long expire = lock4j.expire();
+		else {
+			key = name;
+		}
 		long timeout = lock4j.timeout();
-		final TypeEnum lockType = lock4j.type();
+		int retry = lock4j.retry();
+		final Type lockType = lock4j.type();
 		Lock lock = new RedissonLock(redisUtil);
-		Object obj;
-		// 设置锁的自动过期时间，则执行业务的时间一定要小于锁的自动过期时间，否则就会报错
+		boolean isLocked = false;
 		try {
-			if (lock.tryLock(lockType, key, expire, timeout)) {
-				obj = joinPoint.proceed();
+			do {
+				// 注意：设置锁的过期时间，看门狗失效
+				isLocked = lock.tryLock(lockType, key, timeout);
 			}
-			else {
-				throw new SystemException("" + TOO_MANY_REQUESTS);
+			while (!isLocked && --retry > 0);
+			if (!isLocked) {
+				throw new SystemException(TOO_MANY_REQUESTS);
 			}
+			return joinPoint.proceed();
 		}
 		catch (Throwable throwable) {
-			log.error("错误信息：{}，详情见日志", LogUtil.record(throwable.getMessage()), throwable);
+			log.error("错误信息：{}", throwable.getMessage());
 			throw throwable;
 		}
 		finally {
 			// 释放锁
-			lock.unlock(lockType, key);
+			if (isLocked) {
+				lock.unlock(lockType, key);
+			}
 		}
-		return obj;
 	}
 
 }

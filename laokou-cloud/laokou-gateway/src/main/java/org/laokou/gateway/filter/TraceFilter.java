@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,7 @@
 
 package org.laokou.gateway.filter;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.ThreadContext;
-import org.laokou.common.i18n.utils.LogUtil;
 import org.laokou.common.nacos.utils.ReactiveRequestUtil;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -30,50 +27,30 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import static org.laokou.common.i18n.common.TraceConstant.*;
-import static org.laokou.common.nacos.utils.ReactiveRequestUtil.getHost;
+import static org.laokou.common.i18n.common.constant.TraceConstant.*;
 
 /**
  * 分布式请求链路过滤器.
  *
  * @author laokou
  */
-@Component
 @Slf4j
-@RequiredArgsConstructor
+@Component
 public class TraceFilter implements GlobalFilter, Ordered {
 
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-		try {
-			ServerHttpRequest request = exchange.getRequest();
-			String host = getHost(request);
-			String userId = ReactiveRequestUtil.getParamValue(request, USER_ID);
-			String tenantId = ReactiveRequestUtil.getParamValue(request, TENANT_ID);
-			String username = ReactiveRequestUtil.getParamValue(request, USER_NAME);
-			String traceId = ReactiveRequestUtil.getParamValue(request, TRACE_ID);
-			ThreadContext.put(TRACE_ID, traceId);
-			ThreadContext.put(USER_ID, userId);
-			ThreadContext.put(TENANT_ID, tenantId);
-			ThreadContext.put(USER_NAME, username);
-			// 获取uri
-			String requestURL = ReactiveRequestUtil.getRequestURL(request);
-			log.info("请求路径：{}， 用户ID：{}， 用户名：{}，租户ID：{}，链路ID：{}，主机：{}", requestURL, LogUtil.record(userId),
-					LogUtil.record(username), LogUtil.record(tenantId), LogUtil.record(traceId), host);
-			return chain.filter(exchange.mutate()
-				.request(request.mutate()
-					.header(USER_NAME, username)
-					.header(TENANT_ID, tenantId)
-					.header(USER_ID, userId)
-					.header(TRACE_ID, traceId)
-					.header(DOMAIN_NAME, host)
-					.build())
-				.build());
-		}
-		finally {
-			// 清除
-			ThreadContext.clearMap();
-		}
+		ServerHttpRequest request = exchange.getRequest();
+		String serviceGray = ReactiveRequestUtil.getParamValue(request, SERVICE_GRAY);
+		String serviceHost = ReactiveRequestUtil.getParamValue(request, SERVICE_HOST);
+		String servicePort = ReactiveRequestUtil.getParamValue(request, SERVICE_PORT);
+		return chain.filter(exchange.mutate()
+			.request(request.mutate()
+				.header(SERVICE_HOST, serviceHost)
+				.header(SERVICE_PORT, servicePort)
+				.header(SERVICE_GRAY, serviceGray)
+				.build())
+			.build());
 	}
 
 	@Override

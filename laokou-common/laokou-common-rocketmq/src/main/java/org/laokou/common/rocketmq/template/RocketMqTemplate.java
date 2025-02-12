@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,256 +21,173 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.client.producer.SendStatus;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.apache.rocketmq.spring.support.RocketMQHeaders;
-import org.laokou.common.i18n.common.RocketMqConstant;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.laokou.common.core.utils.MDCUtil;
+import org.laokou.common.i18n.utils.ObjectUtil;
+import org.laokou.common.i18n.utils.StringUtil;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.util.Assert;
 
 import static org.apache.rocketmq.client.producer.SendStatus.SEND_OK;
-import static org.laokou.common.i18n.common.StringConstant.NULL;
-import static org.laokou.common.i18n.common.TraceConstant.TRACE_ID;
+import static org.laokou.common.i18n.common.constant.TraceConstant.SPAN_ID;
+import static org.laokou.common.i18n.common.constant.TraceConstant.TRACE_ID;
 
 /**
  * @author laokou
  */
 @Slf4j
-@AutoConfiguration
 @RequiredArgsConstructor
 public class RocketMqTemplate {
 
 	private final RocketMQTemplate rocketMQTemplate;
 
 	/**
-	 * 同步发送.
-	 * @param topic 主题
-	 * @param payload 消息
-	 * @param timeout 超时时间
-	 * @param <T> 泛型
-	 * @return 发送结果
-	 */
-	public <T> boolean sendSyncMessage(String topic, T payload, long timeout) {
-		Message<T> message = MessageBuilder.withPayload(payload).build();
-		return rocketMQTemplate.syncSend(topic, message, timeout).getSendStatus().equals(SEND_OK);
-	}
-
-	/**
-	 * 同步发送.
-	 * @param topic 主题
-	 * @param payload 消息
-	 * @param timeout 超时时间
-	 * @param <T> 泛型
-	 * @param delayLevel 延迟等级
-	 * @return 发送结果
-	 */
-	public <T> boolean sendSyncMessage(String topic, T payload, long timeout, int delayLevel) {
-		Message<T> message = MessageBuilder.withPayload(payload).build();
-		return rocketMQTemplate.syncSend(topic, message, timeout, delayLevel).getSendStatus().equals(SEND_OK);
-	}
-
-	/**
-	 * 同步发送消息.
-	 * @param topic 主题
-	 * @param payload 消息
-	 * @param <T> 泛型
-	 */
-	public <T> boolean sendSyncMessage(String topic, T payload) {
-		Message<T> message = MessageBuilder.withPayload(payload).build();
-		return rocketMQTemplate.syncSend(topic, message).getSendStatus().equals(SEND_OK);
-	}
-
-	/**
-	 * 异步发送消息.
-	 * @param topic 主题
-	 * @param payload 消息
-	 * @param <T> 泛型
-	 */
-	public <T> void sendAsyncMessage(String topic, T payload) {
-		Message<T> message = MessageBuilder.withPayload(payload).build();
-		rocketMQTemplate.asyncSend(topic, message, new SendCallback() {
-			@Override
-			public void onSuccess(SendResult sendResult) {
-				log.info("RocketMQ消息发送成功");
-			}
-
-			@Override
-			public void onException(Throwable throwable) {
-				log.error("RocketMQ消息发送失败，报错信息", throwable);
-			}
-		});
-	}
-
-	/**
-	 * 异步发送消息.
+	 * 发送单向消息.
 	 * @param topic 主题
 	 * @param tag 标签
-	 * @param payload 消息
-	 * @param <T> 泛型
-	 */
-	public <T> void sendAsyncMessage(String topic, String tag, T payload) {
-		Message<T> message = MessageBuilder.withPayload(payload).build();
-		sendAsyncMessage(topic, tag, message);
-	}
-
-	/**
-	 * 异步发送消息.
-	 * @param topic 主题
-	 * @param tag 标签
-	 * @param payload 消息
+	 * @param payload 消息内容
 	 * @param traceId 链路ID
+	 * @param spanId 标签ID
 	 * @param <T> 泛型
 	 */
-	public <T> void sendAsyncMessage(String topic, String tag, T payload, String traceId) {
-		Message<T> message = MessageBuilder.withPayload(payload).setHeader(TRACE_ID, traceId).build();
-		sendAsyncMessage(topic, tag, message);
+	public <T> void sendOneWayMessage(String topic, String tag, T payload, String traceId, String spanId) {
+		try {
+			// 单向发送，只负责发送消息，不会触发回调函数，即发送消息请求不等待
+			// 适用于耗时短，但对可靠性不高的场景，如日志收集
+			MDCUtil.put(traceId, spanId);
+			Message<T> message = buildMessage(traceId, spanId, payload).build();
+			rocketMQTemplate.sendOneWay(getTopicTag(topic, tag), message);
+			log.info("RocketMQ单向消息发送成功【Tag标签】");
+		}
+		finally {
+			MDCUtil.clear();
+		}
 	}
 
 	/**
-	 * 异步发送消息.
+	 * 发送同步消息.
 	 * @param topic 主题
-	 * @param payload 消息
+	 * @param tag 标签
+	 * @param payload 消息内容
+	 * @param traceId 链路ID
+	 * @param spanId 标签ID
 	 * @param <T> 泛型
-	 * @param timeout 超时时间
 	 */
-	public <T> void sendAsyncMessage(String topic, T payload, long timeout) {
-		Message<T> message = MessageBuilder.withPayload(payload).build();
-		rocketMQTemplate.asyncSend(topic, message, new SendCallback() {
+	public <T> void sendSyncMessage(String topic, String tag, T payload, String traceId, String spanId) {
+		try {
+			MDCUtil.put(traceId, spanId);
+			Message<T> message = buildMessage(traceId, spanId, payload).build();
+			SendStatus sendStatus = rocketMQTemplate.syncSend(getTopicTag(topic, tag), message).getSendStatus();
+			if (ObjectUtil.equals(sendStatus, SEND_OK)) {
+				log.info("RocketMQ同步消息发送成功【Tag标签】");
+			}
+			else {
+				log.info("RocketMQ同步消息发送失败【Tag标签】，发送状态：{}", sendStatus.name());
+			}
+		}
+		finally {
+			MDCUtil.clear();
+		}
+	}
+
+	/**
+	 * 发送异步消息.
+	 * @param topic 主题
+	 * @param tag 标签
+	 * @param payload 消息内容
+	 * @param traceId 链路ID
+	 * @param spanId 标签ID
+	 * @param <T> 泛型
+	 */
+	public <T> void sendAsyncMessage(String topic, String tag, T payload, String traceId, String spanId) {
+		sendAsyncMessage(topic, tag, payload, 3000, traceId, spanId);
+	}
+
+	/**
+	 * 发送异步消息.
+	 * @param topic 主题
+	 * @param tag 标签
+	 * @param payload 消息内容
+	 * @param traceId 链路ID
+	 * @param spanId 标签ID
+	 * @param <T> 泛型
+	 */
+	public <T> void sendAsyncMessage(String topic, String tag, T payload, long timeout, String traceId, String spanId) {
+		Message<T> message = buildMessage(traceId, spanId, payload).build();
+		sendAsyncMessage(topic, tag, message, timeout, traceId, spanId);
+	}
+
+	// @formatter:off
+	/**
+	 * 发送事务消息.
+	 * @param topic 主题
+	 * @param payload 消息内容
+	 * @param transactionId 事务ID
+	 * @param traceId 链路ID
+	 * @param spanId 标签ID
+	 * @param tag 标签
+	 * @param <T> 泛型
+	 */
+	public <T> void sendTransactionMessage(String topic, String tag, T payload, Long transactionId, String traceId,
+			String spanId) {
+		try {
+			Message<T> message = buildMessage(traceId, spanId, transactionId, payload).build();
+			SendStatus sendStatus = rocketMQTemplate.sendMessageInTransaction(getTopicTag(topic, tag), message, null).getSendStatus();
+			// 链路
+			MDCUtil.put(traceId, spanId);
+			if (ObjectUtil.equals(sendStatus, SEND_OK)) {
+				log.info("RocketMQ事务消息发送成功【Tag标签】");
+			}
+			else {
+				log.info("RocketMQ事务消息发送失败【Tag标签】，发送状态：{}", sendStatus.name());
+			}
+		}
+		catch (Exception e) {
+			log.error("RocketMQ事务消息发送失败【Tag标签】，报错信息：{}", e.getMessage());
+		}
+		finally {
+			MDCUtil.clear();
+		}
+	}
+
+	private <T> void sendAsyncMessage(String topic, String tag, Message<T> message, long timeout, String traceId,
+			String spanId) {
+		// 链路
+		MDCUtil.put(traceId, spanId);
+		rocketMQTemplate.asyncSend(getTopicTag(topic, tag), message, new SendCallback() {
 			@Override
 			public void onSuccess(SendResult sendResult) {
-				log.info("RocketMQ消息发送成功");
+				log.info("RocketMQ异步消息发送成功【Tag标签，指定超时时间】");
+				MDCUtil.clear();
 			}
 
 			@Override
 			public void onException(Throwable throwable) {
-				log.error("RocketMQ消息发送失败，报错信息", throwable);
+				log.error("RocketMQ异步消息失败【Tag标签，指定超时时间】，报错信息：{}", throwable.getMessage(), throwable);
+				MDCUtil.clear();
 			}
 		}, timeout);
 	}
 
-	/**
-	 * 单向发送消息.
-	 * @param topic 主题
-	 * @param payload 消息
-	 * @param <T> 泛型
-	 */
-	public <T> void sendOneWayMessage(String topic, T payload) {
-		Message<T> message = MessageBuilder.withPayload(payload).build();
-		// 单向发送，只负责发送消息，不会触发回调函数，即发送消息请求不等待
-		// 适用于耗时短，但对可靠性不高的场景，如日志收集
-		rocketMQTemplate.sendOneWay(topic, message);
+	private String getTopicTag(String topic, String tag) {
+		return StringUtil.isEmpty(tag) ? topic : String.format("%s:%s", topic, tag);
 	}
 
-	/**
-	 * 延迟消息.
-	 * @param topic 主题
-	 * @param delay 延迟时间
-	 * @param payload 消息
-	 * @param <T> 泛型
-	 */
-	public <T> boolean sendDelayMessage(String topic, long delay, T payload) {
-		Message<T> message = MessageBuilder.withPayload(payload).build();
-		return rocketMQTemplate.syncSendDelayTimeSeconds(topic, payload, delay).getSendStatus().equals(SEND_OK);
+	private <T> MessageBuilder<T> buildMessage(String traceId, String spanId, Long transactionId, T payload) {
+		return buildMessage(traceId, spanId, payload)
+			.setHeader(RocketMQHeaders.TRANSACTION_ID, transactionId);
 	}
 
-	/**
-	 * 同步发送顺序消息.
-	 * @param topic 主题
-	 * @param payload 消息
-	 * @param <T> 泛型
-	 * @param id 标识
-	 */
-	public <T> boolean sendSyncOrderlyMessage(String topic, T payload, String id) {
-		Message<T> message = MessageBuilder.withPayload(payload).build();
-		return rocketMQTemplate.syncSendOrderly(topic, message, id).getSendStatus().equals(SEND_OK);
+	private <T> MessageBuilder<T> buildMessage(String traceId, String spanId, T payload) {
+		Assert.notNull(traceId, "traceId must not be null");
+		Assert.notNull(spanId, "spanId must not be null");
+		return MessageBuilder.withPayload(payload)
+			.setHeader(TRACE_ID, traceId)
+			.setHeader(SPAN_ID, spanId);
 	}
-
-	/**
-	 * 异步发送顺序消息.
-	 * @param topic 主题
-	 * @param payload 消息
-	 * @param <T> 泛型
-	 * @param id 标识
-	 */
-	public <T> void sendAsyncOrderlyMessage(String topic, T payload, String id) {
-		Message<T> message = MessageBuilder.withPayload(payload).build();
-		rocketMQTemplate.asyncSendOrderly(topic, message, id, new SendCallback() {
-			@Override
-			public void onSuccess(SendResult sendResult) {
-				log.info("RocketMQ消息发送成功");
-			}
-
-			@Override
-			public void onException(Throwable throwable) {
-				log.error("RocketMQ消息发送失败，报错信息：{}，详情见日志", throwable.getMessage(), throwable);
-			}
-		});
-	}
-
-	/**
-	 * 单向发送顺序消息.
-	 * @param topic 主题
-	 * @param payload 消息
-	 * @param <T> 泛型
-	 * @param id 标识
-	 */
-	public <T> void sendOneWayOrderlyMessage(String topic, T payload, String id) {
-		Message<T> message = MessageBuilder.withPayload(payload).build();
-		// 单向发送，只负责发送消息，不会触发回调函数，即发送消息请求不等待
-		// 适用于耗时短，但对可靠性不高的场景，如日志收集
-		rocketMQTemplate.sendOneWayOrderly(topic, message, id);
-	}
-
-	/**
-	 * 事务消息.
-	 * @param topic 主题
-	 * @param payload 消息
-	 * @param transactionId 事务ID
-	 * @param <T> 泛型
-	 * @return 发送结果
-	 */
-	public <T> boolean sendTransactionMessage(String topic, T payload, Long transactionId) {
-		Message<T> message = MessageBuilder.withPayload(payload)
-			.setHeader(RocketMQHeaders.TRANSACTION_ID, transactionId)
-			.build();
-		return rocketMQTemplate.sendMessageInTransaction(topic, message, NULL).getSendStatus().equals(SEND_OK);
-	}
-
-	/**
-	 * 转换并发送.
-	 * @param topic 主题
-	 * @param payload 消息内容
-	 * @param <T> 泛型
-	 */
-	public <T> void convertAndSendMessage(String topic, T payload) {
-		Message<T> message = MessageBuilder.withPayload(payload).build();
-		rocketMQTemplate.convertAndSend(topic, message);
-	}
-
-	/**
-	 * 发送并接收.
-	 * @param topic 主题
-	 * @param payload 内容
-	 * @param clazz 类型
-	 * @param <T> 泛型
-	 */
-	public <T> Object sendAndReceiveMessage(String topic, T payload, Class<?> clazz) {
-		Message<T> message = MessageBuilder.withPayload(payload).build();
-		return rocketMQTemplate.sendAndReceive(topic, message, clazz);
-	}
-
-	private <T> void sendAsyncMessage(String topic, String tag, Message<T> message) {
-		rocketMQTemplate.asyncSend(String.format(RocketMqConstant.TOPIC_TAG, topic, tag), message, new SendCallback() {
-			@Override
-			public void onSuccess(SendResult sendResult) {
-				log.info("RocketMQ消息发送成功");
-			}
-
-			@Override
-			public void onException(Throwable throwable) {
-				log.error("RocketMQ消息失败，报错信息", throwable);
-			}
-		});
-	}
+	// @formatter:on
 
 }

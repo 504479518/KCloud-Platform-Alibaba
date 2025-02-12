@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,10 @@
 
 package org.laokou.common.core.utils;
 
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.laokou.common.i18n.utils.DateUtils;
-import org.laokou.common.i18n.utils.ObjectUtils;
+import org.laokou.common.i18n.utils.DateUtil;
+import org.laokou.common.i18n.utils.ObjectUtil;
 import org.laokou.common.i18n.utils.StringUtil;
 import org.springframework.util.Assert;
 
@@ -27,17 +28,17 @@ import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.UnknownHostException;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-
-import static org.laokou.common.i18n.common.StringConstant.AT;
+import static org.laokou.common.i18n.common.constant.StringConstant.AT;
 
 /**
- *
  * 分布式高效有序 ID 生产黑科技(sequence)
  *
  * <p>
@@ -49,7 +50,7 @@ import static org.laokou.common.i18n.common.StringConstant.AT;
  * @since 2016-08-18
  */
 @Slf4j
-public class IdGenerator {
+public final class IdGenerator {
 
 	/**
 	 * 雪花算法.
@@ -65,6 +66,9 @@ public class IdGenerator {
 		}
 	}
 
+	private IdGenerator() {
+	}
+
 	/**
 	 * 默认雪花ID.
 	 * @return long
@@ -78,10 +82,22 @@ public class IdGenerator {
 	 * @param snowflakeId 雪花ID
 	 * @return 时间
 	 */
-	public static LocalDateTime getLocalDateTime(long snowflakeId) {
+	public static Instant getInstant(long snowflakeId) {
+		return DateUtil.getInstantOfTimestamp(getTimestamp(snowflakeId));
+	}
+
+	/**
+	 * 雪花ID生成时间.
+	 * @param snowflakeId 雪花ID
+	 * @return 时间
+	 */
+	public static LocalDateTime getLocalDateTime(long snowflakeId, ZoneId zoneId) {
+		return DateUtil.getLocalDateTimeOfTimestamp(getTimestamp(snowflakeId), zoneId);
+	}
+
+	private static long getTimestamp(long snowflakeId) {
 		// 第一段 时间戳部分 (反推 -> 右移left + start)
-		long timestamp = (snowflakeId >> Snowflake.TIMESTAMP_LEFT) + Snowflake.START_TIMESTAMP;
-		return DateUtils.getLocalDateTimeOfTimestamp(timestamp);
+		return (snowflakeId >> Snowflake.TIMESTAMP_LEFT) + Snowflake.START_TIMESTAMP;
 	}
 
 	static class Snowflake {
@@ -161,6 +177,26 @@ public class IdGenerator {
 		 */
 		private long lastTimeStamp = -1L;
 
+		/**
+		 * 根据指定的数据中心ID和机器标志ID生成指定的序列号.
+		 * @param dataCenterId 数据中心ID
+		 * @param machineId 机器标志ID
+		 */
+		private Snowflake(final long dataCenterId, final long machineId) {
+			Assert.isTrue(machineId <= MAX_MACHINE && machineId >= 0,
+					String.format("MachineId can't be greater than %s or less than 0", MAX_MACHINE));
+			Assert.isTrue(dataCenterId <= MAX_DATACENTER && dataCenterId >= 0,
+					String.format("DtaCenterId can't be greater than %s or less than 0", MAX_DATACENTER));
+			this.MACHINE_ID = machineId;
+			this.DATACENTER_ID = dataCenterId;
+		}
+
+		private Snowflake(InetAddress inetAddress) {
+			this.inetAddress = inetAddress;
+			DATACENTER_ID = getDatacenterId();
+			MACHINE_ID = getMaxMachineId(DATACENTER_ID);
+		}
+
 		private long getNextMill() {
 			long mill = getNewTimeStamp();
 			while (mill <= lastTimeStamp) {
@@ -174,36 +210,16 @@ public class IdGenerator {
 		}
 
 		/**
-		 * 根据指定的数据中心ID和机器标志ID生成指定的序列号.
-		 * @param dataCenterId 数据中心ID
-		 * @param machineId 机器标志ID
-		 */
-		Snowflake(final long dataCenterId, final long machineId) {
-			Assert.isTrue(machineId <= MAX_MACHINE && machineId >= 0,
-					String.format("MachineId can't be greater than %s or less than 0", MAX_MACHINE));
-			Assert.isTrue(dataCenterId <= MAX_DATACENTER && dataCenterId >= 0,
-					String.format("DtaCenterId can't be greater than %s or less than 0", MAX_DATACENTER));
-			this.MACHINE_ID = machineId;
-			this.DATACENTER_ID = dataCenterId;
-		}
-
-		Snowflake(InetAddress inetAddress) {
-			this.inetAddress = inetAddress;
-			DATACENTER_ID = getDatacenterId();
-			MACHINE_ID = getMaxMachineId(DATACENTER_ID);
-		}
-
-		/**
 		 * 数据标识ID.
 		 */
 		private long getDatacenterId() {
 			long id = 0L;
 			try {
-				if (ObjectUtils.isNull(this.inetAddress)) {
+				if (ObjectUtil.isNull(this.inetAddress)) {
 					this.inetAddress = InetAddress.getLocalHost();
 				}
 				NetworkInterface network = NetworkInterface.getByInetAddress(this.inetAddress);
-				if (ObjectUtils.isNull(network)) {
+				if (ObjectUtil.isNull(network)) {
 					id = 1L;
 				}
 				else {
@@ -216,7 +232,7 @@ public class IdGenerator {
 				}
 			}
 			catch (Exception e) {
-				log.warn(" getDatacenterId: " + e.getMessage());
+				throw new RuntimeException(e);
 			}
 			return id;
 		}
@@ -246,10 +262,10 @@ public class IdGenerator {
 		 * 生产雪花ID.
 		 * @return 雪花ID
 		 */
+		@SneakyThrows
 		public synchronized long nextId() {
 			long currTimeStamp = getNewTimeStamp();
 			int maxOffset = 5;
-			// 闰秒
 			if (currTimeStamp < lastTimeStamp) {
 				long offset = lastTimeStamp - currTimeStamp;
 				if (offset <= maxOffset) {
@@ -325,11 +341,14 @@ public class IdGenerator {
 	 */
 	public final static class SystemClock {
 
+		private final long initialDelay;
+
 		private final long period;
 
 		private final AtomicLong now;
 
-		private SystemClock(long period) {
+		private SystemClock(long initialDelay, long period) {
+			this.initialDelay = initialDelay;
 			this.period = period;
 			this.now = new AtomicLong(System.currentTimeMillis());
 			scheduleClockUpdating();
@@ -344,12 +363,13 @@ public class IdGenerator {
 		}
 
 		private void scheduleClockUpdating() {
+			// System.currentTimeMillis() => 线程安全
 			ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
-				Thread thread = new Thread(runnable, "System Clock");
-				thread.setDaemon(true);
+				Thread thread = new Thread(runnable, "system-clock-thread");
+				thread.setDaemon(false);
 				return thread;
 			});
-			scheduler.scheduleAtFixedRate(() -> now.set(System.currentTimeMillis()), period, period,
+			scheduler.scheduleAtFixedRate(() -> now.set(System.currentTimeMillis()), initialDelay, period,
 					TimeUnit.MILLISECONDS);
 		}
 
@@ -359,7 +379,7 @@ public class IdGenerator {
 
 		private static class InstanceHolder {
 
-			public static final SystemClock INSTANCE = new SystemClock(1);
+			public static final SystemClock INSTANCE = new SystemClock(1, 1);
 
 		}
 

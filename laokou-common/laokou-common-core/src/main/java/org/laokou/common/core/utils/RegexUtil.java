@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,15 +20,19 @@ package org.laokou.common.core.utils;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.laokou.common.i18n.common.NetworkConstant.IPV4_REGEX;
-import static org.laokou.common.i18n.common.StringConstant.EMPTY;
+import static org.laokou.common.i18n.common.constant.StringConstant.EMPTY;
 
 /**
  * 正则表达式工具类.
  *
  * @author laokou
  */
-public class RegexUtil {
+public final class RegexUtil {
+
+	/**
+	 * IPV4正则表达式.
+	 */
+	private static final String IPV4_REGEX = "((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})(.((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})){3}";
 
 	/**
 	 * 邮箱正则表达式.
@@ -38,7 +42,7 @@ public class RegexUtil {
 	/**
 	 * 手机号正则表达式.
 	 */
-	private static final String MOBILE_REGEX = "^((13[0-9])|(14[5,7,9])|(15[0-3,5-9])|(166)|(17[0-9])|(18[0-9])|(19[1,8,9]))\\d{8}$";
+	private static final String MOBILE_REGEX = "^(1[3-9])\\d{9}$";
 
 	/**
 	 * 数据源名称正则表达式.
@@ -50,10 +54,8 @@ public class RegexUtil {
 	 */
 	private static final String NUMBER_REGEX = "^[0-9]*$";
 
-	/**
-	 * URL版本正则表达式.
-	 */
-	public static final String URL_VERSION_REGEX = "/(v\\d+)/";
+	private RegexUtil() {
+	}
 
 	/**
 	 * 邮箱验证.
@@ -87,7 +89,7 @@ public class RegexUtil {
 	 * @param sourceName 自由名称
 	 * @return 数据源名称匹配结果
 	 */
-	public static boolean sourceRegex(String sourceName) {
+	public static boolean sourceNameRegex(String sourceName) {
 		return Pattern.matches(SOURCE_REGEX, sourceName);
 	}
 
@@ -106,7 +108,7 @@ public class RegexUtil {
 	 * @param regex 正则表达式
 	 * @return 值
 	 */
-	public static String find(String input, String regex) {
+	public static String getRegexValue(String input, String regex) {
 		Pattern pattern = Pattern.compile(regex);
 		Matcher matcher = pattern.matcher(input);
 		if (matcher.find()) {

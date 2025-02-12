@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,22 +24,25 @@ import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.analysis.TokenFilter;
 import co.elastic.clients.elasticsearch._types.mapping.DynamicMapping;
 import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
-import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.IndexResponse;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import co.elastic.clients.elasticsearch.indices.*;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.laokou.common.core.utils.JacksonUtil;
+import org.laokou.common.i18n.utils.JacksonUtil;
 import org.laokou.common.elasticsearch.annotation.*;
+import org.laokou.common.elasticsearch.entity.Search;
+import org.laokou.common.i18n.dto.Page;
+import org.laokou.common.i18n.utils.ObjectUtil;
 import org.laokou.common.i18n.utils.StringUtil;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
+import org.springframework.util.ReflectionUtils;
 
 import java.io.ByteArrayInputStream;
 import java.lang.reflect.Field;
@@ -48,9 +51,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
-import static org.laokou.common.i18n.common.StringConstant.COMMA;
+import static org.laokou.common.i18n.common.constant.StringConstant.COMMA;
 
 /**
  * @author laokou
@@ -60,19 +64,22 @@ import static org.laokou.common.i18n.common.StringConstant.COMMA;
 @RequiredArgsConstructor
 public class ElasticsearchTemplate {
 
+	private static final String PRIMARY_KEY = "id";
+
 	private final ElasticsearchClient elasticsearchClient;
 
 	private final ElasticsearchAsyncClient elasticsearchAsyncClient;
 
 	@SneakyThrows
-	public <TDocument> CompletableFuture<Boolean> asyncCreateIndex(String name, String alias, Class<TDocument> clazz) {
-		return asyncExist(List.of(name)).thenApplyAsync(resp -> {
+	public <TDocument> CompletableFuture<Boolean> asyncCreateIndex(String name, String alias, Class<TDocument> clazz,
+			Executor executor) {
+		return asyncExist(List.of(name), executor).thenApplyAsync(resp -> {
 			if (resp) {
-				log.error("索引：{} -> 创建索引失败，索引已存在", name);
+				log.info("索引：{} -> 创建索引失败，索引已存在", name);
 				return Boolean.FALSE;
 			}
 			return Boolean.TRUE;
-		}).thenApplyAsync(resp -> {
+		}, executor).thenApplyAsync(resp -> {
 			if (resp) {
 				Document document = convert(name, alias, clazz);
 				elasticsearchAsyncClient.indices().create(getCreateIndexRequest(document)).thenApplyAsync(response -> {
@@ -81,20 +88,20 @@ public class ElasticsearchTemplate {
 						return Boolean.TRUE;
 					}
 					else {
-						log.error("索引：{} -> 创建索引失败", name);
+						log.info("索引：{} -> 创建索引失败", name);
 						return Boolean.FALSE;
 					}
 				});
 			}
 			return Boolean.FALSE;
-		});
+		}, executor);
 	}
 
 	@SneakyThrows
 	public <TDocument> void createIndex(String name, String alias, Class<TDocument> clazz) {
 		// 判断索引是否存在
 		if (exist(List.of(name))) {
-			log.error("索引：{} -> 创建索引失败，索引已存在", name);
+			log.info("索引：{} -> 创建索引失败，索引已存在", name);
 			return;
 		}
 		Document document = convert(name, alias, clazz);
@@ -104,14 +111,14 @@ public class ElasticsearchTemplate {
 			log.info("索引：{} -> 创建索引成功", name);
 		}
 		else {
-			log.error("索引：{} -> 创建索引失败", name);
+			log.info("索引：{} -> 创建索引失败", name);
 		}
 	}
 
 	@SneakyThrows
 	public void deleteIndex(List<String> names) {
 		if (!exist(names)) {
-			log.error("索引：{} -> 删除索引失败，索引不存在", StringUtil.collectionToDelimitedString(names, COMMA));
+			log.info("索引：{} -> 删除索引失败，索引不存在", StringUtil.collectionToDelimitedString(names, COMMA));
 			return;
 		}
 		DeleteIndexResponse deleteIndexResponse = elasticsearchClient.indices().delete(getDeleteIndexRequest(names));
@@ -120,7 +127,7 @@ public class ElasticsearchTemplate {
 			log.info("索引：{} -> 删除索引成功", StringUtil.collectionToDelimitedString(names, COMMA));
 		}
 		else {
-			log.error("索引：{} -> 删除索引失败", StringUtil.collectionToDelimitedString(names, COMMA));
+			log.info("索引：{} -> 删除索引失败", StringUtil.collectionToDelimitedString(names, COMMA));
 		}
 	}
 
@@ -137,7 +144,7 @@ public class ElasticsearchTemplate {
 			log.info("索引：{} -> 同步索引成功", index);
 		}
 		else {
-			log.error("索引：{} -> 同步索引失败", index);
+			log.info("索引：{} -> 同步索引失败", index);
 		}
 	}
 
@@ -150,39 +157,44 @@ public class ElasticsearchTemplate {
 					return Boolean.TRUE;
 				}
 				else {
-					log.error("索引：{} -> 异步同步索引失败", index);
+					log.info("索引：{} -> 异步同步索引失败", index);
 					return Boolean.FALSE;
 				}
 			});
 	}
 
-	@SneakyThrows
 	public void bulkCreateDocument(String index, Map<String, Object> map) {
-		boolean errors = elasticsearchClient
-			.bulk(bulk -> bulk.index(index).refresh(Refresh.True).operations(getBulkOperations(map)))
-			.errors();
-		if (errors) {
-			log.error("索引：{} -> 批量同步索引失败", index);
+		try {
+			boolean errors = elasticsearchClient
+				.bulk(bulk -> bulk.index(index).refresh(Refresh.True).operations(getBulkOperations(map)))
+				.errors();
+			if (errors) {
+				log.info("索引：{} -> 批量同步索引失败", index);
+			}
+			else {
+				log.info("索引：{} -> 批量同步索引成功", index);
+			}
 		}
-		else {
-			log.info("索引：{} -> 批量同步索引成功", index);
+		catch (Throwable e) {
+			log.error("批量同步索引失败，错误信息：{}", e.getMessage());
 		}
 	}
 
 	@SneakyThrows
-	public CompletableFuture<Boolean> asyncBulkCreateDocument(String index, Map<String, Object> map) {
+	public CompletableFuture<Boolean> asyncBulkCreateDocument(String index, Map<String, Object> map,
+			Executor executor) {
 		return elasticsearchAsyncClient
 			.bulk(bulk -> bulk.index(index).refresh(Refresh.True).operations(getBulkOperations(map)))
 			.thenApplyAsync(resp -> {
 				if (resp.errors()) {
-					log.error("索引：{} -> 异步批量同步索引失败", index);
+					log.info("索引：{} -> 异步批量同步索引失败", index);
 					return Boolean.FALSE;
 				}
 				else {
 					log.info("索引：{} -> 异步批量同步索引成功", index);
 					return Boolean.TRUE;
 				}
-			});
+			}, executor);
 	}
 
 	@SneakyThrows
@@ -191,11 +203,12 @@ public class ElasticsearchTemplate {
 	}
 
 	@SneakyThrows
-	public <S, R> List<R> search(List<String> names, int pageNum, int pageSize, S obj, Class<R> clazz) {
-		Search search = convert(obj);
-		SearchRequest searchRequest = getSearchRequest(names, pageNum, pageSize, search);
+	public <R> Page<R> search(List<String> names, Search search, Class<R> clazz) {
+		SearchRequest searchRequest = getSearchRequest(names, search);
 		SearchResponse<R> response = elasticsearchClient.search(searchRequest, clazz);
-		return response.hits().hits().stream().map(item -> {
+		HitsMetadata<R> hits = response.hits();
+		assert hits.total() != null;
+		return Page.create(hits.hits().stream().map(item -> {
 			R source = item.source();
 			if (source != null) {
 				// ID赋值
@@ -204,7 +217,7 @@ public class ElasticsearchTemplate {
 				setHighlightFields(source, item.highlight());
 			}
 			return source;
-		}).toList();
+		}).toList(), hits.total().value());
 	}
 
 	private <R> void setHighlightFields(R source, Map<String, List<String>> map) {
@@ -213,9 +226,9 @@ public class ElasticsearchTemplate {
 			try {
 				Field field = clazz.getDeclaredField(k);
 				field.setAccessible(true);
-				field.set(source, v.getFirst());
+				ReflectionUtils.setField(field, source, v.getFirst());
 			}
-			catch (NoSuchFieldException | IllegalAccessException e) {
+			catch (NoSuchFieldException e) {
 				throw new RuntimeException(e);
 			}
 		});
@@ -223,23 +236,29 @@ public class ElasticsearchTemplate {
 
 	private <R> void setId(R source, String id) {
 		try {
-			Field field = source.getClass().getDeclaredField("id");
+			Field field = source.getClass().getDeclaredField(PRIMARY_KEY);
 			field.setAccessible(true);
-			field.set(source, id);
+			ReflectionUtils.setField(field, source, id);
 		}
 		catch (Exception e) {
-			throw new RuntimeException(e);
+			log.error("ID赋值失败，错误信息：{}", e.getMessage());
 		}
 	}
 
-	public CompletableFuture<Boolean> asyncExist(List<String> names) {
-		return elasticsearchAsyncClient.indices().exists(getExists(names)).thenApplyAsync(BooleanResponse::value);
+	public CompletableFuture<Boolean> asyncExist(List<String> names, Executor executor) {
+		return elasticsearchAsyncClient.indices()
+			.exists(getExists(names))
+			.thenApplyAsync(BooleanResponse::value, executor);
 	}
 
-	private SearchRequest getSearchRequest(List<String> names, int pageNum, int pageSize, Search search) {
+	private SearchRequest getSearchRequest(List<String> names, Search search) {
+		// 查询条件
+		Integer pageNo = search.getPageNo();
+		Integer pageSize = search.getPageSize();
+		Query query = search.getQuery();
 		SearchRequest.Builder builder = new SearchRequest.Builder();
 		builder.index(names);
-		builder.from((pageNum - 1) * pageSize);
+		builder.from((pageNo - 1) * pageSize);
 		builder.size(pageSize);
 		// 获取真实总数
 		builder.trackTotalHits(fn -> fn.enabled(true));
@@ -250,7 +269,17 @@ public class ElasticsearchTemplate {
 		// 匹配度倒排，数值越大匹配度越高
 		builder.sort(fn -> fn.score(s -> s.order(SortOrder.Desc)));
 		builder.highlight(getHighlight(search.getHighlight()));
-		builder.query(getQuery(search.getFields()));
+		// bool查询 => 布尔查询，允许组合多个查询条件
+		// must查询类似and查询
+		// must_not查询类似not查询
+		// should查询类似or查询
+		// query_string查询text类型字段，不需要连续，顺序还可以调换（分词）
+		// match_phrase查询text类型字段，顺序必须相同，而且必须都是连续的（分词）
+		// term精准匹配
+		// match模糊匹配（分词）
+		if (ObjectUtil.isNotNull(query)) {
+			builder.query(query);
+		}
 		return builder.build();
 	}
 
@@ -277,47 +306,6 @@ public class ElasticsearchTemplate {
 			builder.numberOfFragments(j.getNumberOfFragments());
 			return builder.build();
 		}));
-	}
-
-	private co.elastic.clients.elasticsearch._types.query_dsl.Query getQuery(List<Search.Field> fields) {
-		co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder builder = new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder();
-		builder.bool(getBoolQuery(fields));
-		return builder.build();
-	}
-
-	private BoolQuery getBoolQuery(List<Search.Field> fields) {
-		// bool查询 => 布尔查询，允许组合多个查询条件
-		// must查询类似and查询
-		// must_not查询类似not查询
-		// should查询类似or查询
-		BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
-		// query_string查询text类型字段，不需要连续，顺序还可以调换（分词）
-		// match_phrase查询text类型字段，顺序必须相同，而且必须都是连续的（分词）
-		// term精准匹配
-		// match模糊匹配（分词）
-		fields.forEach(item -> {
-			switch (item.getQuery()) {
-				case MUST -> boolBuilder.must(getQuery(item));
-				case SHOULD -> boolBuilder.should(getQuery(item));
-				case MUST_NOT -> boolBuilder.mustNot(getQuery(item));
-			}
-		});
-		return boolBuilder.build();
-	}
-
-	private co.elastic.clients.elasticsearch._types.query_dsl.Query getQuery(Search.Field field) {
-		co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder builder = new Query.Builder();
-		List<String> names = field.getNames();
-		String value = field.getValue();
-		switch (field.getType()) {
-			case TERM -> builder.term(fn -> fn.field(names.getFirst()).value(value));
-			case MATCH -> builder.match(fn -> fn.field(names.getFirst()).query(value));
-			case MATCH_PHRASE -> builder.matchPhrase(fn -> fn.field(names.getFirst()).query(value));
-			case QUERY_STRING -> builder.queryString(fn -> fn.fields(names).query(value));
-			default -> {
-			}
-		}
-		return builder.build();
 	}
 
 	private List<BulkOperation> getBulkOperations(Map<String, Object> map) {
@@ -379,7 +367,7 @@ public class ElasticsearchTemplate {
 		TypeMapping.Builder mappingBuilder = new TypeMapping.Builder();
 		mappingBuilder.dynamic(DynamicMapping.True);
 		List<Document.Mapping> mappings = document.getMappings();
-		mappings.forEach(item -> setProperties(mappingBuilder, item));
+		mappings.forEach(item -> item.getType().setProperties(mappingBuilder, item));
 		return mappingBuilder.build();
 	}
 
@@ -398,84 +386,14 @@ public class ElasticsearchTemplate {
 		return analyzerBuilder.build();
 	}
 
-	private void setProperties(TypeMapping.Builder mappingBuilder, Document.Mapping mapping) {
-		Type type = mapping.getType();
-		String field = mapping.getField();
-		String analyzer = mapping.getAnalyzer();
-		boolean fielddata = mapping.isFielddata();
-		String searchAnalyzer = mapping.getSearchAnalyzer();
-		boolean eagerGlobalOrdinals = mapping.isEagerGlobalOrdinals();
-		switch (type) {
-			case TEXT -> mappingBuilder.properties(field,
-					fn -> fn.text(t -> t.index(true)
-						.fielddata(fielddata)
-						.eagerGlobalOrdinals(eagerGlobalOrdinals)
-						.searchAnalyzer(searchAnalyzer)
-						.analyzer(analyzer)));
-			case KEYWORD ->
-				mappingBuilder.properties(field, fn -> fn.keyword(t -> t.eagerGlobalOrdinals(eagerGlobalOrdinals)));
-			case LONG -> mappingBuilder.properties(field, fn -> fn.long_(t -> t));
-			default -> {
-			}
-		}
-	}
-
 	private <TDocument> Document convert(String name, String alias, Class<TDocument> clazz) {
 		boolean annotationPresent = clazz.isAnnotationPresent(Index.class);
 		if (annotationPresent) {
 			Index index = clazz.getAnnotation(Index.class);
-			return Document.builder()
-				.name(name)
-				.alias(StringUtil.isNotEmpty(alias) ? alias : name)
-				.mappings(getMappings(clazz))
-				.setting(getSetting(index))
-				.analysis(getAnalysis(index))
-				.build();
+			alias = StringUtil.isNotEmpty(alias) ? alias : name;
+			return new Document(name, alias, getMappings(clazz), getSetting(index), getAnalysis(index));
 		}
 		throw new RuntimeException("Not found @Index");
-	}
-
-	private <S> Search convert(S obj) {
-		Class<?> clazz = obj.getClass();
-		boolean annotationPresent = clazz.isAnnotationPresent(Highlight.class);
-		Search.Highlight h = null;
-		if (annotationPresent) {
-			Highlight highlight = clazz.getAnnotation(Highlight.class);
-			h = getHighlight(highlight);
-		}
-		return new Search(h, getSearchFields(obj, clazz));
-	}
-
-	private <S> List<Search.Field> getSearchFields(S obj, Class<?> clazz) {
-		Field[] fields = clazz.getDeclaredFields();
-		List<Search.Field> list = Arrays.stream(fields)
-			.filter(item -> item.isAnnotationPresent(SearchField.class))
-			.map(item -> getSearchField(item, item.getAnnotation(SearchField.class), obj))
-			.toList();
-		if (CollectionUtils.isEmpty(list)) {
-			throw new RuntimeException("@SearchField not found");
-		}
-		return list;
-	}
-
-	@SneakyThrows
-	private <S> Search.Field getSearchField(Field field, SearchField searchField, S obj) {
-		String[] names = searchField.names();
-		// 允许访问私有属性
-		field.setAccessible(true);
-		String value = String.valueOf(field.get(obj));
-		return new Search.Field(Arrays.asList(names), value, searchField.type(), searchField.query());
-	}
-
-	private Search.Highlight getHighlight(Highlight highlight) {
-		return new Search.Highlight(Arrays.asList(highlight.preTags()), Arrays.asList(highlight.postTags()),
-				highlight.requireFieldMatch(), getHighlightField(highlight.fields()));
-	}
-
-	private List<Search.HighlightField> getHighlightField(HighlightField[] fields) {
-		return Arrays.stream(fields)
-			.map(item -> new Search.HighlightField(item.name(), item.numberOfFragments(), item.fragmentSize()))
-			.toList();
 	}
 
 	private Document.Analysis getAnalysis(Index index) {
@@ -521,9 +439,12 @@ public class ElasticsearchTemplate {
 		Type type = field.type();
 		String searchAnalyzer = field.searchAnalyzer();
 		String analyzer = field.analyzer();
-		boolean fielddata = field.fielddata();
+		boolean fieldData = field.fielddata();
 		boolean eagerGlobalOrdinals = field.eagerGlobalOrdinals();
-		return new Document.Mapping(value, type, searchAnalyzer, analyzer, fielddata, eagerGlobalOrdinals);
+		String format = field.format();
+		boolean isIndex = field.index();
+		return new Document.Mapping(value, type, searchAnalyzer, analyzer, fieldData, eagerGlobalOrdinals, format,
+				isIndex);
 	}
 
 }

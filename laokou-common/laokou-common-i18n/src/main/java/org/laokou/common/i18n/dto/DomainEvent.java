@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,79 +17,102 @@
 
 package org.laokou.common.i18n.dto;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.experimental.SuperBuilder;
-import org.laokou.common.i18n.common.EventStatusEnum;
-import org.laokou.common.i18n.common.EventTypeEnum;
+import lombok.Getter;
+import lombok.Setter;
+import org.laokou.common.i18n.common.constant.EventType;
+import org.laokou.common.i18n.utils.DateUtil;
 
 import java.io.Serial;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
-import static lombok.AccessLevel.PROTECTED;
-import static org.laokou.common.i18n.dto.Identifier.*;
+import static org.laokou.common.i18n.common.constant.StringConstant.EMPTY;
 
 /**
+ * 领域事件.
+ *
  * @author laokou
  */
-@Data
-@SuperBuilder
-@AllArgsConstructor(access = PROTECTED)
-@NoArgsConstructor(access = PROTECTED)
-@Schema(name = "DomainEvent", description = "领域事件")
-public abstract class DomainEvent<ID> implements Event {
+@Setter
+@Getter
+public final class DomainEvent extends Identifier {
 
 	@Serial
 	private static final long serialVersionUID = 1532877866226749304L;
 
-	@Schema(name = "id", description = "ID")
-	protected ID id;
+	/**
+	 * 租户ID.
+	 */
+	private final Long tenantId;
 
-	@Schema(name = "aggregateId", description = "聚合根ID")
-	protected ID aggregateId;
+	/**
+	 * 用户ID.
+	 */
+	private final Long userId;
 
-	@Schema(name = "eventType", description = "事件类型")
-	protected EventTypeEnum eventType;
+	/**
+	 * 聚合根ID.
+	 */
+	private final Long aggregateId;
 
-	@Schema(name = "eventStatus", description = "事件状态")
-	protected EventStatusEnum eventStatus;
+	/**
+	 * MQ主题.
+	 */
+	private final String topic;
 
-	@Schema(name = "topic", description = "MQ主题")
-	protected String topic;
+	/**
+	 * MQ标签.
+	 */
+	private final String tag;
 
-	@Schema(name = "sourceName", description = "数据源名称")
-	private String sourceName;
+	/**
+	 * 时间.
+	 */
+	private final Instant instant = DateUtil.nowInstant();
 
-	@Schema(name = "appName", description = "应用名称")
-	private String appName;
+	/**
+	 * 版本号【乐观锁】.
+	 */
+	private final int version;
 
-	@Schema(name = CREATOR, description = "创建人")
-	protected ID creator;
+	/**
+	 * 内容.
+	 */
+	private final String payload;
 
-	@Schema(name = EDITOR, description = "编辑人")
-	protected ID editor;
+	/**
+	 * 类型.
+	 */
+	private final String type;
 
-	@Schema(name = DEPT_ID, description = "部门ID")
-	protected ID deptId;
+	/**
+	 * 数据源前缀.
+	 */
+	private final String sourcePrefix;
 
-	@Schema(name = DEPT_PATH, description = "部门PATH")
-	protected String deptPath;
+	public DomainEvent() {
+		this.payload = EMPTY;
+		this.type = EMPTY;
+		this.sourcePrefix = EMPTY;
+		this.tenantId = 0L;
+		this.userId = 0L;
+		this.aggregateId = 0L;
+		this.topic = EMPTY;
+		this.tag = EMPTY;
+		this.version = 0;
+	}
 
-	@Schema(name = TENANT_ID, description = "租户ID")
-	protected ID tenantId;
-
-	@Schema(name = CREATE_DATE, description = "创建时间")
-	protected LocalDateTime createDate;
-
-	@Schema(name = UPDATE_DATE, description = "修改时间")
-	protected LocalDateTime updateDate;
-
-	public DomainEvent(ID id, EventStatusEnum eventStatus, String sourceName) {
-		this.id = id;
-		this.eventStatus = eventStatus;
-		this.sourceName = sourceName;
+	public DomainEvent(Long id, Long tenantId, Long userId, Long aggregateId, String topic, String tag, int version,
+			String payload, EventType type, String sourcePrefix) {
+		super.id = id;
+		this.payload = payload;
+		this.type = type.getCode();
+		this.sourcePrefix = sourcePrefix;
+		this.tenantId = tenantId;
+		this.userId = userId;
+		this.aggregateId = aggregateId;
+		this.topic = topic;
+		this.tag = tag;
+		this.version = version;
 	}
 
 }

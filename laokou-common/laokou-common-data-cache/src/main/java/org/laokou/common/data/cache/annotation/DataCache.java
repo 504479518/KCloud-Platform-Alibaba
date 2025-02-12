@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,9 @@
 
 package org.laokou.common.data.cache.annotation;
 
-import org.laokou.common.i18n.common.CacheOperatorTypeEnum;
+import org.laokou.common.data.cache.constant.Type;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import java.lang.annotation.Documented;
+import java.lang.annotation.*;
 
 /**
  * 数据缓存.
@@ -48,6 +44,6 @@ public @interface DataCache {
 	/**
 	 * 操作类型.
 	 */
-	CacheOperatorTypeEnum type() default CacheOperatorTypeEnum.GET;
+	Type type() default Type.GET;
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,13 +20,11 @@ package org.laokou.gateway.repository;
 import com.alibaba.nacos.api.config.ConfigService;
 import io.micrometer.common.lang.NonNullApi;
 import lombok.extern.slf4j.Slf4j;
-import org.laokou.common.core.utils.JacksonUtil;
 import org.laokou.common.i18n.common.exception.SystemException;
-import org.laokou.common.i18n.utils.LogUtil;
+import org.laokou.common.i18n.utils.JacksonUtil;
 import org.laokou.common.nacos.utils.ConfigUtil;
-import org.laokou.common.redis.utils.RedisKeyUtil;
+import org.laokou.common.i18n.utils.RedisKeyUtil;
 import org.springframework.cloud.gateway.event.RefreshRoutesEvent;
-import org.springframework.cloud.gateway.route.CachingRouteLocator;
 import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinitionRepository;
 import org.springframework.context.ApplicationEventPublisher;
@@ -39,11 +37,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 
-import static org.laokou.common.i18n.common.RouterConstant.DATA_ID;
-import static org.laokou.common.i18n.common.exception.SystemException.ROUTER_NOT_EXIST;
+import static org.laokou.common.i18n.common.exception.SystemException.Gateway.ROUTER_NOT_EXIST;
 
 // @formatter:off
 /**
@@ -53,11 +49,16 @@ import static org.laokou.common.i18n.common.exception.SystemException.ROUTER_NOT
  * @author laokou
  */
 // @formatter:on
-@Component
 @Slf4j
+@Component
 @NonNullApi
 @Repository
 public class NacosRouteDefinitionRepository implements RouteDefinitionRepository, ApplicationEventPublisherAware {
+
+	/**
+	 * 动态路由配置.
+	 */
+	private static final String DATA_ID = "router.json";
 
 	private final ConfigUtil configUtil;
 
@@ -71,11 +72,17 @@ public class NacosRouteDefinitionRepository implements RouteDefinitionRepository
 		this.reactiveHashOperations = reactiveRedisTemplate.opsForHash();
 	}
 
+	// @formatter:off
 	/**
-	 * 获取动态路由（避免集群中网关频繁调用Redis，还是得走本地缓存）.
-	 * {@link org.springframework.cloud.gateway.config.GatewayAutoConfiguration#cachedCompositeRouteLocator(List)}
-	 * {@link CachingRouteLocator}
-	 * @return 动态路由
+	 * 路由基本原理总结：
+	 * 1.从NacosRouteDefinitionRepository、DiscoveryClientRouteDefinitionLocator和PropertiesRouteDefinitionLocator加载定义的路由规则.
+	 * 2.通过CompositeRouteDefinitionLocator合并定义的路由规则.
+	 * 3.加载所有的定义的路由规则，使用配置的断言工厂和过滤器工厂来创建路由.
+	 * 4.将路由缓存，提高路由查找性能.
+	 * <p>
+	 * 获取动态路由（避免集群中网关频繁调用Redis，需要本地缓存）.
+	 * {@link org.springframework.cloud.gateway.config.GatewayAutoConfiguration
+	 * @return 定义的路由规则
 	 */
 	@Override
 	public Flux<RouteDefinition> getRouteDefinitions() {
@@ -83,10 +90,11 @@ public class NacosRouteDefinitionRepository implements RouteDefinitionRepository
 			.mapNotNull(Map.Entry::getValue)
 			.onErrorContinue((throwable, routeDefinition) -> {
 				if (log.isErrorEnabled()) {
-					log.error("get routes from redis error cause : {}", throwable.toString(), throwable);
+					log.error("Get routes from redis error cause : {}", throwable.toString(), throwable);
 				}
 			});
 	}
+	// @formatter:on
 
 	// @formatter:off
 	@Override
@@ -100,19 +108,19 @@ public class NacosRouteDefinitionRepository implements RouteDefinitionRepository
 	}
 
 	/**
-	 * 同步Nacos动态路由配置到Redis.
-	 * @return 同步结果
+	 * 保存路由【同步Nacos路由配置到Redis】.
+	 * @return 保存结果
 	 */
-	public Flux<Boolean> syncRouters() {
+	public Flux<Boolean> saveRouters() {
 		return Flux.fromIterable(pullRouters())
 			.flatMap(router -> reactiveHashOperations.putIfAbsent(RedisKeyUtil.getRouteDefinitionHashKey(), router.getId(), router)).doFinally(c -> refreshEvent());
 	}
 
 	/**
-	 * 删除所有动态路由.
+	 * 删除路由.
 	 * @return 删除结果
 	 */
-	public Mono<Boolean> deleteRouters() {
+	public Mono<Boolean> removeRouters() {
 		return reactiveHashOperations.delete(RedisKeyUtil.getRouteDefinitionHashKey()).doFinally(c -> refreshEvent());
 	}
 
@@ -129,7 +137,7 @@ public class NacosRouteDefinitionRepository implements RouteDefinitionRepository
 			return JacksonUtil.toList(configInfo, RouteDefinition.class);
 		}
 		catch (Exception e) {
-			log.error("错误信息：{}，详情见日志", LogUtil.record(e.getMessage()), e);
+			log.error("错误信息：{}", e.getMessage());
 			throw new SystemException(ROUTER_NOT_EXIST);
 		}
 	}

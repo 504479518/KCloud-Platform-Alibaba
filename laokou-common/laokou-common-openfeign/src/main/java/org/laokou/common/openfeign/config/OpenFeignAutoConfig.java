@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,10 @@ package org.laokou.common.openfeign.config;
 import com.alibaba.cloud.sentinel.feign.SentinelFeignAutoConfiguration;
 import feign.*;
 import feign.codec.ErrorDecoder;
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.laokou.common.core.utils.RequestUtil;
-import org.laokou.common.i18n.utils.LogUtil;
 import org.laokou.common.idempotent.utils.IdempotentUtil;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.cloud.openfeign.FeignAutoConfiguration;
@@ -35,11 +33,9 @@ import org.springframework.context.annotation.Import;
 
 import java.util.Map;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.laokou.common.i18n.common.RequestHeaderConstants.AUTHORIZATION;
-import static org.laokou.common.i18n.common.StringConstant.EMPTY;
-import static org.laokou.common.i18n.common.StringConstant.UNDER;
-import static org.laokou.common.i18n.common.TraceConstant.*;
+import static org.laokou.common.i18n.common.constant.Constant.AUTHORIZATION;
+import static org.laokou.common.i18n.common.constant.StringConstant.UNDER;
+import static org.laokou.common.i18n.common.constant.TraceConstant.*;
 
 // @formatter:off
 /**
@@ -52,13 +48,10 @@ import static org.laokou.common.i18n.common.TraceConstant.*;
 // @formatter:on
 
 @Slf4j
-@AutoConfiguration(before = SentinelFeignAutoConfiguration.class)
-@Import(FeignClientsConfiguration.class)
 @RequiredArgsConstructor
+@Import({ FeignClientsConfiguration.class })
+@AutoConfiguration(before = SentinelFeignAutoConfiguration.class)
 public class OpenFeignAutoConfig extends ErrorDecoder.Default implements RequestInterceptor {
-
-	@Schema(name = "SERVICE-GRAY", description = "服务灰度")
-	private static final String SERVICE_GRAY = "service-gray";
 
 	private final IdempotentUtil idempotentUtil;
 
@@ -76,20 +69,11 @@ public class OpenFeignAutoConfig extends ErrorDecoder.Default implements Request
 	@Override
 	public void apply(RequestTemplate template) {
 		HttpServletRequest request = RequestUtil.getHttpServletRequest();
-		String authorization = request.getHeader(AUTHORIZATION);
-		String traceId = request.getHeader(TRACE_ID);
-		String userId = request.getHeader(USER_ID);
-		String username = request.getHeader(USER_NAME);
-		String tenantId = request.getHeader(TENANT_ID);
-		String serviceGray = request.getHeader(SERVICE_GRAY);
-		template.header(TRACE_ID, traceId);
-		template.header(AUTHORIZATION, authorization);
-		template.header(USER_ID, userId);
-		template.header(USER_NAME, username);
-		template.header(TENANT_ID, tenantId);
-		template.header(SERVICE_GRAY, serviceGray);
+		template.header(AUTHORIZATION, request.getHeader(AUTHORIZATION));
+		template.header(SERVICE_HOST, request.getHeader(SERVICE_HOST));
+		template.header(SERVICE_PORT, request.getHeader(SERVICE_PORT));
+		template.header(SERVICE_GRAY, request.getHeader(SERVICE_GRAY));
 		final boolean idempotent = IdempotentUtil.isIdempotent();
-		String msg = EMPTY;
 		if (idempotent) {
 			// 获取当前Feign客户端的接口名称
 			String clientName = template.feignTarget().type().getName();
@@ -107,18 +91,14 @@ public class OpenFeignAutoConfig extends ErrorDecoder.Default implements Request
 				idMap.put(uniqueKey, idempotentKey);
 			}
 			template.header(REQUEST_ID, idempotentKey);
-			msg = String.format("，请求ID：%s", idMap.get(uniqueKey));
 		}
-		log.info("OpenFeign分布式调用，令牌：{}，用户ID：{}，用户名：{}，租户ID：{}，链路ID：{}，灰度路由：{}" + msg, authorization,
-				LogUtil.record(userId), LogUtil.record(username), LogUtil.record(tenantId), LogUtil.record(traceId),
-				LogUtil.record(serviceGray));
 	}
 
 	@Bean
 	public Retryer retryer() {
-		// 最大请求次数为3，初始间隔时间为100ms
+		// 最大请求次数为5，初始间隔时间为100ms
 		// 下次间隔时间1.5倍递增，重试间最大间隔时间为1s
-		return new Retryer.Default(100, SECONDS.toMillis(1), 3);
+		return new Retryer.Default();
 	}
 
 	@Override

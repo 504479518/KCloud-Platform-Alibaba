@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,8 @@ package org.laokou.auth.service;
 
 import lombok.RequiredArgsConstructor;
 import org.laokou.auth.api.SecretsServiceI;
-import org.laokou.auth.command.secret.query.SecretGetQryExe;
+import org.laokou.auth.command.query.SecretGetQryExe;
+import org.laokou.auth.dto.clientobject.SecretCO;
 import org.laokou.common.i18n.dto.Result;
 import org.springframework.stereotype.Service;
 
@@ -39,7 +40,7 @@ public class SecretsServiceImpl implements SecretsServiceI {
 	 * @return 密钥
 	 */
 	@Override
-	public Result<String> find() {
+	public Result<SecretCO> getInfo() {
 		return secretGetQryExe.execute();
 	}
 

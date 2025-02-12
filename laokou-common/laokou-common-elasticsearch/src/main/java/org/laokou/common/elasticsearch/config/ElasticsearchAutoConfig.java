@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,11 +58,9 @@ import java.time.Duration;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static org.laokou.common.core.utils.SslUtil.sslContext;
-import static org.laokou.common.i18n.common.NetworkConstant.HTTPS_SCHEME;
-import static org.laokou.common.i18n.common.NetworkConstant.HTTP_SCHEME;
-import static org.laokou.common.i18n.common.StringConstant.EMPTY;
-import static org.laokou.common.i18n.common.StringConstant.RISK;
+import static org.laokou.common.i18n.utils.SslUtil.sslContext;
+import static org.laokou.common.i18n.common.constant.StringConstant.EMPTY;
+import static org.laokou.common.i18n.common.constant.StringConstant.RISK;
 
 /**
  * @author laokou
@@ -71,6 +69,16 @@ import static org.laokou.common.i18n.common.StringConstant.RISK;
 @RequiredArgsConstructor
 @EnableConfigurationProperties(ElasticsearchProperties.class)
 class ElasticsearchAutoConfig {
+
+	/**
+	 * HTTP协议头.
+	 */
+	private static final String HTTP_SCHEME = "http://";
+
+	/**
+	 * HTTPS协议头.
+	 */
+	private static final String HTTPS_SCHEME = "https://";
 
 	private final ElasticsearchProperties properties;
 
@@ -142,139 +150,6 @@ class ElasticsearchAutoConfig {
 
 	private void ignoreConfigureSsl(HttpAsyncClientBuilder httpClientBuilder) {
 		httpClientBuilder.setSSLContext(sslContext()).setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
-	}
-
-	static class DefaultRestClientBuilderCustomizer implements RestClientBuilderCustomizer {
-
-		private static final PropertyMapper PROPERTY_MAPPER = PropertyMapper.get();
-
-		private final ElasticsearchProperties properties;
-
-		private final ElasticsearchConnectionDetails connectionDetails;
-
-		DefaultRestClientBuilderCustomizer(ElasticsearchProperties properties,
-				ElasticsearchConnectionDetails connectionDetails) {
-			this.properties = properties;
-			this.connectionDetails = connectionDetails;
-		}
-
-		@Override
-		public void customize(RestClientBuilder builder) {
-		}
-
-		@Override
-		public void customize(HttpAsyncClientBuilder builder) {
-			builder.setDefaultCredentialsProvider(new ConnectionDetailsCredentialsProvider(this.connectionDetails));
-			PROPERTY_MAPPER.from(this.properties::isSocketKeepAlive)
-				.to((keepAlive) -> builder
-					.setDefaultIOReactorConfig(IOReactorConfig.custom().setSoKeepAlive(keepAlive).build()));
-		}
-
-		@Override
-		public void customize(RequestConfig.Builder builder) {
-			PROPERTY_MAPPER.from(this.properties::getConnectionTimeout)
-				.whenNonNull()
-				.asInt(Duration::toMillis)
-				.to(builder::setConnectTimeout);
-			PROPERTY_MAPPER.from(this.properties::getSocketTimeout)
-				.whenNonNull()
-				.asInt(Duration::toMillis)
-				.to(builder::setSocketTimeout);
-		}
-
-	}
-
-	private static class ConnectionDetailsCredentialsProvider extends BasicCredentialsProvider {
-
-		ConnectionDetailsCredentialsProvider(ElasticsearchConnectionDetails connectionDetails) {
-			String username = connectionDetails.getUsername();
-			if (StringUtils.hasText(username)) {
-				Credentials credentials = new UsernamePasswordCredentials(username, connectionDetails.getPassword());
-				setCredentials(AuthScope.ANY, credentials);
-			}
-			Stream<URI> uris = getUris(connectionDetails);
-			uris.filter(this::hasUserInfo).forEach(this::addUserInfoCredentials);
-		}
-
-		private Stream<URI> getUris(ElasticsearchConnectionDetails connectionDetails) {
-			return connectionDetails.getNodes().stream().map(ElasticsearchConnectionDetails.Node::toUri);
-		}
-
-		private boolean hasUserInfo(URI uri) {
-			return uri != null && StringUtils.hasLength(uri.getUserInfo());
-		}
-
-		private void addUserInfoCredentials(URI uri) {
-			AuthScope authScope = new AuthScope(uri.getHost(), uri.getPort());
-			Credentials credentials = createUserInfoCredentials(uri.getUserInfo());
-			setCredentials(authScope, credentials);
-		}
-
-		private Credentials createUserInfoCredentials(String userInfo) {
-			int delimiter = userInfo.indexOf(":");
-			if (delimiter == -1) {
-				return new UsernamePasswordCredentials(userInfo, null);
-			}
-			String username = userInfo.substring(0, delimiter);
-			String password = userInfo.substring(delimiter + 1);
-			return new UsernamePasswordCredentials(username, password);
-		}
-
-	}
-
-	/**
-	 * Adapts {@link ElasticsearchProperties} to {@link ElasticsearchConnectionDetails}.
-	 */
-	static class PropertiesElasticsearchConnectionDetails implements ElasticsearchConnectionDetails {
-
-		private final ElasticsearchProperties properties;
-
-		PropertiesElasticsearchConnectionDetails(ElasticsearchProperties properties) {
-			this.properties = properties;
-		}
-
-		@Override
-		public List<Node> getNodes() {
-			return this.properties.getUris().stream().map(this::createNode).toList();
-		}
-
-		@Override
-		public String getUsername() {
-			return this.properties.getUsername();
-		}
-
-		@Override
-		public String getPassword() {
-			return this.properties.getPassword();
-		}
-
-		@Override
-		public String getPathPrefix() {
-			return this.properties.getPathPrefix();
-		}
-
-		private Node createNode(String uri) {
-			if (!(uri.startsWith(HTTP_SCHEME) || uri.startsWith(HTTPS_SCHEME))) {
-				uri = HTTP_SCHEME + uri;
-			}
-			return createNode(URI.create(uri));
-		}
-
-		private Node createNode(URI uri) {
-			String userInfo = uri.getUserInfo();
-			Node.Protocol protocol = Node.Protocol.forScheme(uri.getScheme());
-			if (!StringUtils.hasLength(userInfo)) {
-				return new Node(uri.getHost(), uri.getPort(), protocol, null, null);
-			}
-			int separatorIndex = userInfo.indexOf(RISK);
-			if (separatorIndex == -1) {
-				return new Node(uri.getHost(), uri.getPort(), protocol, userInfo, null);
-			}
-			String[] components = userInfo.split(RISK);
-			return new Node(uri.getHost(), uri.getPort(), protocol, components[0],
-					(components.length > 1) ? components[1] : EMPTY);
-		}
-
 	}
 
 	interface ElasticsearchConnectionDetails extends ConnectionDetails {
@@ -358,10 +233,6 @@ class ElasticsearchAutoConfig {
 					this.scheme = scheme;
 				}
 
-				String getScheme() {
-					return this.scheme;
-				}
-
 				static Protocol forScheme(String scheme) {
 					for (Protocol protocol : values()) {
 						if (protocol.scheme.equals(scheme)) {
@@ -371,7 +242,144 @@ class ElasticsearchAutoConfig {
 					throw new IllegalArgumentException("Unknown scheme '" + scheme + "'");
 				}
 
+				String getScheme() {
+					return this.scheme;
+				}
+
 			}
+		}
+
+	}
+
+	static class DefaultRestClientBuilderCustomizer implements RestClientBuilderCustomizer {
+
+		private static final PropertyMapper PROPERTY_MAPPER = PropertyMapper.get();
+
+		private final ElasticsearchProperties properties;
+
+		private final ElasticsearchConnectionDetails connectionDetails;
+
+		DefaultRestClientBuilderCustomizer(ElasticsearchProperties properties,
+				ElasticsearchConnectionDetails connectionDetails) {
+			this.properties = properties;
+			this.connectionDetails = connectionDetails;
+		}
+
+		@Override
+		public void customize(RestClientBuilder builder) {
+		}
+
+		@Override
+		public void customize(HttpAsyncClientBuilder builder) {
+			builder.setDefaultCredentialsProvider(new ConnectionDetailsCredentialsProvider(this.connectionDetails));
+			PROPERTY_MAPPER.from(this.properties::isSocketKeepAlive)
+				.to((keepAlive) -> builder
+					.setDefaultIOReactorConfig(IOReactorConfig.custom().setSoKeepAlive(keepAlive).build()));
+		}
+
+		@Override
+		public void customize(RequestConfig.Builder builder) {
+			PROPERTY_MAPPER.from(this.properties::getConnectionTimeout)
+				.whenNonNull()
+				.asInt(Duration::toMillis)
+				.to(builder::setConnectTimeout);
+			PROPERTY_MAPPER.from(this.properties::getSocketTimeout)
+				.whenNonNull()
+				.asInt(Duration::toMillis)
+				.to(builder::setSocketTimeout);
+		}
+
+	}
+
+	private static class ConnectionDetailsCredentialsProvider extends BasicCredentialsProvider {
+
+		ConnectionDetailsCredentialsProvider(ElasticsearchConnectionDetails connectionDetails) {
+			String username = connectionDetails.getUsername();
+			if (StringUtils.hasText(username)) {
+				Credentials credentials = new UsernamePasswordCredentials(username, connectionDetails.getPassword());
+				setCredentials(AuthScope.ANY, credentials);
+			}
+			Stream<URI> uris = getUris(connectionDetails);
+			uris.filter(this::hasUserInfo).forEach(this::addUserInfoCredentials);
+		}
+
+		private Stream<URI> getUris(ElasticsearchConnectionDetails connectionDetails) {
+			return connectionDetails.getNodes().stream().map(ElasticsearchConnectionDetails.Node::toUri);
+		}
+
+		private boolean hasUserInfo(URI uri) {
+			return uri != null && StringUtils.hasLength(uri.getUserInfo());
+		}
+
+		private void addUserInfoCredentials(URI uri) {
+			AuthScope authScope = new AuthScope(uri.getHost(), uri.getPort());
+			Credentials credentials = createUserInfoCredentials(uri.getUserInfo());
+			setCredentials(authScope, credentials);
+		}
+
+		private Credentials createUserInfoCredentials(String userInfo) {
+			int delimiter = userInfo.indexOf(':');
+			if (delimiter == -1) {
+				return new UsernamePasswordCredentials(userInfo, null);
+			}
+			String username = userInfo.substring(0, delimiter);
+			String password = userInfo.substring(delimiter + 1);
+			return new UsernamePasswordCredentials(username, password);
+		}
+
+	}
+
+	/**
+	 * Adapts {@link ElasticsearchProperties} to {@link ElasticsearchConnectionDetails}.
+	 */
+	static class PropertiesElasticsearchConnectionDetails implements ElasticsearchConnectionDetails {
+
+		private final ElasticsearchProperties properties;
+
+		PropertiesElasticsearchConnectionDetails(ElasticsearchProperties properties) {
+			this.properties = properties;
+		}
+
+		@Override
+		public List<Node> getNodes() {
+			return this.properties.getUris().stream().map(this::createNode).toList();
+		}
+
+		@Override
+		public String getUsername() {
+			return this.properties.getUsername();
+		}
+
+		@Override
+		public String getPassword() {
+			return this.properties.getPassword();
+		}
+
+		@Override
+		public String getPathPrefix() {
+			return this.properties.getPathPrefix();
+		}
+
+		private Node createNode(String uri) {
+			if (!(uri.startsWith(HTTP_SCHEME) || uri.startsWith(HTTPS_SCHEME))) {
+				uri = HTTP_SCHEME + uri;
+			}
+			return createNode(URI.create(uri));
+		}
+
+		private Node createNode(URI uri) {
+			String userInfo = uri.getUserInfo();
+			Node.Protocol protocol = Node.Protocol.forScheme(uri.getScheme());
+			if (!StringUtils.hasLength(userInfo)) {
+				return new Node(uri.getHost(), uri.getPort(), protocol, null, null);
+			}
+			int separatorIndex = userInfo.indexOf(RISK);
+			if (separatorIndex == -1) {
+				return new Node(uri.getHost(), uri.getPort(), protocol, userInfo, null);
+			}
+			String[] components = userInfo.split(RISK);
+			return new Node(uri.getHost(), uri.getPort(), protocol, components[0],
+					(components.length > 1) ? components[1] : EMPTY);
 		}
 
 	}

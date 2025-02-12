@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,13 @@
 
 package org.laokou.common.i18n.dto;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-
 import java.io.Serial;
 
 /**
+ * CommonCommand request from Client.
+ *
  * @author laokou
  */
-@Schema(name = "CommonCommand", description = "客户端通用命令请求")
 public class CommonCommand extends Command {
 
 	@Serial

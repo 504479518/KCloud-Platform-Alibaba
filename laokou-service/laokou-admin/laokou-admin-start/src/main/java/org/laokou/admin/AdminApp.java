@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,60 +19,83 @@ package org.laokou.admin;
 
 import com.ulisesbocchio.jasyptspringboot.annotation.EnableEncryptableProperties;
 import lombok.SneakyThrows;
-import org.apache.dubbo.config.spring.context.annotation.EnableDubbo;
+import lombok.extern.slf4j.Slf4j;
 import org.laokou.common.core.annotation.EnableTaskExecutor;
+import org.laokou.common.core.annotation.EnableWarmUp;
+import org.laokou.common.i18n.utils.SslUtil;
+import org.laokou.common.nacos.annotation.EnableNacosShutDown;
 import org.laokou.common.nacos.annotation.EnableRouter;
-import org.laokou.common.nacos.filter.ShutdownFilter;
 import org.laokou.common.redis.annotation.EnableRedisRepository;
+import org.laokou.common.secret.annotation.EnableApiSecret;
 import org.laokou.common.security.annotation.EnableSecurity;
-import org.laokou.common.xxl.job.annotation.EnableXxlJob;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.web.servlet.ServletComponentScan;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StopWatch;
 
 import java.net.InetAddress;
 
-import static org.laokou.common.i18n.common.NetworkConstant.IP;
-
 /**
- * 启动类. exposeProxy=true => 使用Cglib代理，在切面中暴露代理对象，进行方法增强（默认Cglib代理）
+ * 系统服务启动类. exposeProxy=true => 使用Cglib代理，在切面中暴露代理对象，进行方法增强
  *
  * @author laokou
  */
-@SpringBootApplication(exclude = { SecurityFilterAutoConfiguration.class }, scanBasePackages = "org.laokou")
-@EnableDiscoveryClient
-@EnableConfigurationProperties
-@EnableAspectJAutoProxy(exposeProxy = true)
-@EnableEncryptableProperties
-@EnableFeignClients
-@EnableDubbo
-@EnableRedisRepository
-@ServletComponentScan(basePackageClasses = { ShutdownFilter.class })
-@EnableSecurity
-@EnableTaskExecutor
-@EnableXxlJob
+@Slf4j
+@EnableWarmUp
 @EnableRouter
+@EnableSecurity
+@EnableApiSecret
+@EnableScheduling
+@EnableFeignClients
+@EnableTaskExecutor
+@EnableNacosShutDown
+@EnableRedisRepository
+@EnableDiscoveryClient
+@EnableEncryptableProperties
+@EnableConfigurationProperties
+@EnableAspectJAutoProxy
+@SpringBootApplication(exclude = { SecurityFilterAutoConfiguration.class }, scanBasePackages = "org.laokou")
 public class AdminApp {
 
+	// @formatter:off
+    /// ```properties
+    /// -Dnacos.remote.client.rpc.tls.enable=true
+    /// -Dnacos.remote.client.rpc.tls.mutualAuth=true
+    /// -Dnacos.remote.client.rpc.tls.certChainFile=nacos-client-cert.pem
+    /// -Dnacos.remote.client.rpc.tls.certPrivateKey=nacos-client-key.pem
+    /// -Dnacos.remote.client.rpc.tls.trustCollectionChainPath=nacos-ca-cert.pem
+    /// -Dnacos.remote.client.rpc.tls.certPrivateKeyPassword=laokou123
+    /// -Dcsp.sentinel.api.port=8723
+    /// -Dserver.port=9990
+    /// ```
+    /// ```properties
+    /// client_id => 95TxSsTPFA3tF12TBSMmUVK0da
+    /// client_secret => FpHwIfw4wY92dO
+    /// ```
 	@SneakyThrows
 	public static void main(String[] args) {
-		// System.setProperty(TlsSystemConfig.TLS_ENABLE, TRUE);
-		// System.setProperty(TlsSystemConfig.CLIENT_AUTH, TRUE);
-		// System.setProperty(TlsSystemConfig.CLIENT_TRUST_CERT, "tls/nacos.cer");
+		StopWatch stopWatch = new StopWatch("Admin应用程序");
+		stopWatch.start();
+		System.setProperty("address", String.format("%s:%s", InetAddress.getLocalHost().getHostAddress(), System.getProperty("server.port", "9990")));
 		// SpringSecurity 子线程读取父线程的上下文
-		System.setProperty(SecurityContextHolder.SYSTEM_PROPERTY, SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
-		System.setProperty(IP, InetAddress.getLocalHost().getHostAddress());
-		// 因为nacos的log4j2导致本项目的日志不输出的问题
-		// 配置关闭nacos日志
+		System.setProperty(SecurityContextHolder.SYSTEM_PROPERTY, SecurityContextHolder.TTL_MODE_INHERITABLETHREADLOCAL);
+		// 配置关闭nacos日志，因为nacos的log4j2导致本项目的日志不输出的问题
 		System.setProperty("nacos.logging.default.config.enabled", "false");
+		// 关闭sentinel健康检查 https://github.com/alibaba/Sentinel/issues/1494
+		System.setProperty("management.health.sentinel.enabled", "false");
+		// 忽略SSL认证
+		SslUtil.ignoreSSLTrust();
 		new SpringApplicationBuilder(AdminApp.class).web(WebApplicationType.SERVLET).run(args);
+		stopWatch.stop();
+		log.info("{}", stopWatch.prettyPrint());
 	}
+    // @formatter:on
 
 }

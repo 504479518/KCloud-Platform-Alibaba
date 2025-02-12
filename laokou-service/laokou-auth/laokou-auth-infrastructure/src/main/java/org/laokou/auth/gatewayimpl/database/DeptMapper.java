@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,15 +23,13 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-import static org.laokou.common.i18n.common.MybatisPlusConstants.USER_ID;
-
 /**
  * 部门.
  *
  * @author laokou
  */
-@Repository
 @Mapper
+@Repository
 public interface DeptMapper {
 
 	/**
@@ -45,6 +43,6 @@ public interface DeptMapper {
 	 * @param userId 用户ID
 	 * @return 部门PATHS
 	 */
-	List<String> selectDeptPathsByUserId(@Param(USER_ID) Long userId);
+	List<String> selectDeptPathsByUserId(@Param("userId") Long userId);
 
 }

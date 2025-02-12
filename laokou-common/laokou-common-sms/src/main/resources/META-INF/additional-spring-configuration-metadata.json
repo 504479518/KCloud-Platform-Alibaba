@@ -1,0 +1,9 @@
+{
+  "groups": [],
+  "properties": [
+    {
+      "name": "sms.type",
+      "type": "org.laokou.common.sms.config.SmsProperties$Type"
+    }
+  ]
+}

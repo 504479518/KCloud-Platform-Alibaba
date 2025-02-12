@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,16 +23,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.laokou.common.core.context.UserContextHolder;
 import org.laokou.common.security.utils.UserDetail;
 import org.laokou.common.security.utils.UserUtil;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.lang.Nullable;
-import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.AsyncHandlerInterceptor;
 
 /**
  * @author laokou
  */
-@AutoConfiguration
 @NonNullApi
-public class UserContextInterceptor implements HandlerInterceptor {
+public class UserContextInterceptor implements AsyncHandlerInterceptor {
 
 	@Override
 	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -47,14 +45,8 @@ public class UserContextInterceptor implements HandlerInterceptor {
 	}
 
 	private UserContextHolder.User convert(UserDetail userDetail) {
-		return UserContextHolder.User.builder()
-			.id(userDetail.getId())
-			.deptId(userDetail.getDeptId())
-			.deptPath(userDetail.getDeptPath())
-			.tenantId(userDetail.getTenantId())
-			.username(userDetail.getUsername())
-			.sourceName(userDetail.getSourceName())
-			.build();
+		return new UserContextHolder.User(userDetail.getId(), userDetail.getUsername(), userDetail.getTenantId(),
+				userDetail.getSourcePrefix());
 	}
 
 }

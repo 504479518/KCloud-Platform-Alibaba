@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,20 +26,19 @@ public interface Lock {
 
 	/**
 	 * 尝试加锁.
-	 * @param typeEnum 类型
-	 * @param key 键
-	 * @param expire 过期时间
+	 * @param type 类型
+	 * @param key 标识
 	 * @param timeout 锁等待超时时间
 	 * @return Boolean
 	 * @throws InterruptedException 线程中断异常
 	 */
-	Boolean tryLock(TypeEnum typeEnum, String key, long expire, long timeout) throws InterruptedException;
+	boolean tryLock(Type type, String key, long timeout) throws InterruptedException;
 
 	/**
 	 * 释放锁.
-	 * @param typeEnum 锁类型
+	 * @param type 锁类型
 	 * @param key 键
 	 */
-	void unlock(TypeEnum typeEnum, String key);
+	void unlock(Type type, String key);
 
 }

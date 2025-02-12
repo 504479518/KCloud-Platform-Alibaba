@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 package org.laokou.common.nacos.utils;
 
-import org.laokou.common.core.utils.JacksonUtil;
+import org.laokou.common.i18n.utils.JacksonUtil;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -33,13 +33,16 @@ import java.nio.charset.StandardCharsets;
  */
 public class ReactiveResponseUtil {
 
-	public static Mono<Void> response(ServerWebExchange exchange, Object data) {
-		DataBuffer buffer = exchange.getResponse()
-			.bufferFactory()
-			.wrap(JacksonUtil.toJsonStr(data).getBytes(StandardCharsets.UTF_8));
+	public static Mono<Void> responseOk(ServerWebExchange exchange, Object data) {
+		return responseOk(exchange, JacksonUtil.toJsonStr(data), MediaType.APPLICATION_JSON);
+	}
+
+	public static Mono<Void> responseOk(ServerWebExchange exchange, String str, MediaType contentType) {
+		DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(str.getBytes(StandardCharsets.UTF_8));
 		ServerHttpResponse response = exchange.getResponse();
-		response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
 		response.setStatusCode(HttpStatus.OK);
+		response.getHeaders().setContentType(contentType);
+		response.getHeaders().setContentLength(str.getBytes(StandardCharsets.UTF_8).length);
 		return response.writeWith(Flux.just(buffer));
 	}
 

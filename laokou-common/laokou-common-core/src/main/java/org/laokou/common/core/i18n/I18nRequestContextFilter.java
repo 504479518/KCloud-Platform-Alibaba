@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,11 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.laokou.common.i18n.utils.LocaleUtils;
-import org.springframework.context.i18n.LocaleContextHolder;
-import org.springframework.http.HttpHeaders;
+import lombok.Setter;
+import org.laokou.common.core.utils.I18nUtil;
+import org.springframework.boot.web.servlet.filter.OrderedRequestContextFilter;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-import org.springframework.web.filter.RequestContextFilter;
 
 import java.io.IOException;
 
@@ -36,11 +35,11 @@ import java.io.IOException;
  *
  * @author laokou
  */
+@Setter
 @NonNullApi
-public final class I18nRequestContextFilter extends RequestContextFilter {
+public final class I18nRequestContextFilter extends OrderedRequestContextFilter {
 
-	private I18nRequestContextFilter() {
-	}
+	public static final String LANG = "lang";
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -65,8 +64,7 @@ public final class I18nRequestContextFilter extends RequestContextFilter {
 	 * @param requestAttributes 请求属性
 	 */
 	private void initContextHolders(HttpServletRequest request, ServletRequestAttributes requestAttributes) {
-		String language = request.getHeader(HttpHeaders.ACCEPT_LANGUAGE);
-		LocaleContextHolder.setLocale(LocaleUtils.toLocale(language), true);
+		I18nUtil.set(request);
 		RequestContextHolder.setRequestAttributes(requestAttributes, true);
 		if (logger.isTraceEnabled()) {
 			logger.trace("Bound request context to thread: " + request);
@@ -77,7 +75,7 @@ public final class I18nRequestContextFilter extends RequestContextFilter {
 	 * 注销国际化本地线程变量.
 	 */
 	private void resetContextHolders() {
-		LocaleContextHolder.resetLocaleContext();
+		I18nUtil.reset();
 		RequestContextHolder.resetRequestAttributes();
 	}
 

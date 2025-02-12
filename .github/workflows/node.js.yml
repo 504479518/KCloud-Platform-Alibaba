@@ -1,0 +1,77 @@
+# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+
+name: JavaScript CI with Node.js
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: 'npm'
+          cache-dependency-path: "./ui/pnpm-lock.yaml"
+      - name: Install pnpm
+        run: npm install -g pnpm
+      - name: Install UI
+        run: pnpm install
+        working-directory: ./ui
+      - name: Build UI
+        run: pnpm build
+        working-directory: ./ui
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: 'npm'
+          cache-dependency-path: "./bigScreen/pnpm-lock.yaml"
+      - name: Install pnpm
+        run: npm install -g pnpm
+      - name: Install BigScreen
+        run: pnpm install
+        working-directory: ./bigScreen
+      - name: Build BigScreen
+        run: pnpm build
+        working-directory: ./bigScreen
+      - name: Build the Docker image
+        run: |
+          # 登录阿里云镜像仓库
+          docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }} registry.cn-shenzhen.aliyuncs.com
+          # ========== 构建UI ==========
+          cd ui
+          # 使用Dockerfile构建镜像
+          docker build . --file Dockerfile --tag registry.cn-shenzhen.aliyuncs.com/koushenhai/ui:3.4.2
+          # 推送镜像到镜像仓库
+          docker push registry.cn-shenzhen.aliyuncs.com/koushenhai/ui:3.4.2
+      - name: Use Node.js 16.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 16.x
+          cache: 'npm'
+          cache-dependency-path: "./archive/package-lock.json"
+      - name: Cache Clean Doc
+        run: npm cache clean --force
+      - name: Install Doc
+        run: npm install --prefix ./archive
+      - name: Build Doc
+        run: npm run build --prefix ./archive
+      - name: Publish Doc
+        uses: cpina/github-action-push-to-another-repository@v1.6
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.USER_TOKEN }}
+        with:
+          target-branch: 'main'
+          source-directory: './archive/docs/.vuepress/dist'
+          destination-github-username: 'KouShenhai'
+          destination-repository-name: 'koushenhai.github.io'
+          user-email: 2413176044@qq.com

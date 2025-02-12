@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,20 +18,21 @@
 package org.laokou.admin;
 
 import lombok.RequiredArgsConstructor;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
-import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.test.context.TestConstructor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.security.Principal;
-import java.util.Objects;
+
+import static org.laokou.common.security.config.GlobalOpaqueTokenIntrospector.FULL;
 
 /**
  * @author laokou
@@ -39,9 +40,9 @@ import java.util.Objects;
 @SpringBootTest
 @RequiredArgsConstructor
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
-public class CommonTest {
+class CommonTest {
 
-	private static final String TOKEN = "eyJraWQiOiI2MTIyYjcyOC0xOTMxLTQ3NWMtYjMyMS0yYjdmYmVjMGQ0OTEiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJhZG1pbiIsImF1ZCI6Ijk1VHhTc1RQRkEzdEYxMlRCU01tVVZLMGRhIiwibmJmIjoxNzEwMzEzMTEyLCJzY29wZSI6WyJwYXNzd29yZCIsIm1haWwiLCJvcGVuaWQiLCJtb2JpbGUiXSwiaXNzIjoiaHR0cDovLzEyNy4wLjAuMTo1NTU1L2F1dGgiLCJleHAiOjE3MTAzMTY3MTIsImlhdCI6MTcxMDMxMzExMiwianRpIjoiZjRlYWU1YjctOWQzNy00NTM1LWEyODgtNWFjNWEwNzc2MjU1In0.Sg4LYn6hoYKB3vDM4NnFfDd3MBxpu-Bja-iYTNDDVBTkDMPjWXdbSTpupplud5aQ-mwRMhSuMF_ctzMFT5So1VckhNV8dg35DhKsRzEYfLaya_vk4eiFUaSU8ibfSPSEACa524L01SHb8wgb04LnvVAuJnPEzDZNRZxwHKbxA0irqwCafuTax8EFKGxHskHsxeuaaCvQdGLKSbYCdC3tHA85SIUKdsnm8fSS4_5El9gztbFUxDHZWRgagN_fHRqyDSd32PCulPeG3uOut-uUwC2Dv4xodLuaCYEouyn0aMY_juz2uHkpf1MnLh74caeE30lmbqBF5tv2ErOsqdMIaw";
+	private static final String TOKEN = "eyJraWQiOiI5ZmJhYjBhMi00ODEzLTRkMDUtYmY4OS05MzQzZTVmZDdlNzgiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJZbGg0UVRGMFltZEVXV0pSaW1GTVBHYUptbGR5dVdJYjlCTm1VTjFVTE1JNyIsImF1ZCI6Ijk1VHhTc1RQRkEzdEYxMlRCU01tVVZLMGRhIiwibmJmIjoxNzMyMDIwNzUwLCJzY29wZSI6WyJyZWFkIiwid3JpdGUiXSwiaXNzIjoiaHR0cHM6Ly9nYXRld2F5OjU1NTUvYXV0aCIsImV4cCI6MTczMjAyNDM1MCwiaWF0IjoxNzMyMDIwNzUwLCJqdGkiOiJjNWZmMTc0Ny0wMWJmLTQ2ZDYtOGI4Zi02MDBhNDE2ZmZmMWQifQ.jcfqP27WgVzo4M2ryZ5G1QOSWFYmWFaJntHulgMLowUUXMIiODicUMd5mrB7GjBKV_hYiVyz2Ls15Q_6--IQhlG9g96a9lw6ZsvSIpb4wr7zSodtwYjny_03BAjm_1GwngfKHZTfGR2VoAGjaWdNKWiRTyKWAmzcUPp7G4oovYQ5pYf-xHyVXaI2Wnd-GihpOQooIbFvlqZMAMIVT1yfv496UYpMUJnQnhAZaGaqocImjzclfCW5X69agnncH4tjacR4k-IOz3swTasAU53F0D-eaJC8ynOmnq-OcQi21sWyPP09Ju1n-_KzJMt94pT8iNun1GxZFmKuxBnBpCdPDQ";
 
 	private final WebApplicationContext webApplicationContext;
 
@@ -52,15 +53,11 @@ public class CommonTest {
 	@BeforeEach
 	public void setUp() {
 		mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
-		OAuth2Authorization authorization = oAuth2AuthorizationService.findByToken(TOKEN, OAuth2TokenType.ACCESS_TOKEN);
-		assert authorization != null;
-		UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = Objects
-			.requireNonNull(authorization.getAttribute(Principal.class.getName()));
+		OAuth2Authorization authorization = oAuth2AuthorizationService.findByToken(TOKEN, FULL);
+		Assertions.assertNotNull(authorization);
+		UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = authorization
+			.getAttribute(Principal.class.getName());
 		SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
-	}
-
-	protected String getToken() {
-		return "Bearer " + TOKEN;
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,27 +19,30 @@ package org.laokou.auth.config;
 
 import lombok.Data;
 import org.laokou.common.core.config.OAuth2ResourceServerProperties;
+import org.laokou.common.core.utils.SpringUtil;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.session.data.redis.RedisIndexedSessionRepository;
+import org.springframework.session.security.SpringSessionBackedSessionRegistry;
 
-import static org.laokou.common.security.config.OAuth2ResourceServerAutoConfig.customizer;
+import static org.laokou.common.security.config.OAuth2ResourceServerConfig.customizer;
 
 /**
  * 资源服务器配置.
  *
  * @author laokou
  */
+// @formatter:off
 @Data
 @Configuration
-@ConditionalOnProperty(havingValue = "true", matchIfMissing = true,
-		prefix = "spring.security.oauth2.authorization-server", name = "enabled")
+@ConditionalOnProperty(havingValue = "true", matchIfMissing = true, prefix = "spring.security.oauth2.authorization-server", name = "enabled")
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 class OAuth2ResourceServerConfig {
 
@@ -48,17 +51,33 @@ class OAuth2ResourceServerConfig {
 	 * <a href="https://github.com/spring-projects/spring-security/issues/10938">优化配置</a>
 	 * @param http http配置
 	 * @param oAuth2ResourceServerProperties OAuth2配置文件
-	 * @param env 环境配置
+	 * @param springUtil Spring工具类
 	 * @return 认证过滤器
 	 * @throws Exception 异常
 	 */
 	@Bean
 	SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http,
-			OAuth2ResourceServerProperties oAuth2ResourceServerProperties, Environment env) throws Exception {
+		SpringUtil springUtil,
+		OAuth2ResourceServerProperties oAuth2ResourceServerProperties,
+		SessionExpiredStrategy sessionExpiredStrategy,
+        SessionInvalidStrategy sessionInvalidStrategy,
+		SessionRegistry springSessionBackedSessionRegistry
+	) throws Exception {
 		return http
-			.headers(httpSecurityHeadersConfigurer -> httpSecurityHeadersConfigurer.httpStrictTransportSecurity(
-					hsts -> hsts.includeSubDomains(true).preload(true).maxAgeInSeconds(31536000)))
-			.authorizeHttpRequests(customizer(env, oAuth2ResourceServerProperties))
+			// 只会在需要时创建 HttpSession【默认配置】
+			//  .sessionManagement(config -> config
+			// 	.sessionCreationPolicy(IF_REQUIRED)
+			// 	.invalidSessionStrategy(sessionInvalidStrategy)
+			// 	// 最大会话1
+			// 	.maximumSessions(1)
+			// 	.sessionRegistry(springSessionBackedSessionRegistry)
+			// 	.expiredSessionStrategy(sessionExpiredStrategy))
+			.headers(httpSecurityHeadersConfigurer -> httpSecurityHeadersConfigurer
+				.httpStrictTransportSecurity(hsts -> hsts
+					.includeSubDomains(true)
+					.preload(true)
+					.maxAgeInSeconds(31536000)))
+			.authorizeHttpRequests(customizer(oAuth2ResourceServerProperties, springUtil))
 			.cors(AbstractHttpConfigurer::disable)
 			.csrf(AbstractHttpConfigurer::disable)
 			.httpBasic(AbstractHttpConfigurer::disable)
@@ -66,9 +85,16 @@ class OAuth2ResourceServerConfig {
 			// https://docs.spring.io/spring-security/reference/servlet/authentication/passwords/form.html
 			// 登录页面 -> DefaultLoginPageGeneratingFilter
 			.formLogin(Customizer.withDefaults())
+			// 不记住
+			.rememberMe(AbstractHttpConfigurer::disable)
 			// 清除session
 			.logout(logout -> logout.clearAuthentication(true).invalidateHttpSession(true))
 			.build();
+	}
+
+	@Bean
+	SessionRegistry springSessionBackedSessionRegistry(RedisIndexedSessionRepository redisIndexedSessionRepository) {
+		return new SpringSessionBackedSessionRegistry<>(redisIndexedSessionRepository);
 	}
 
 }

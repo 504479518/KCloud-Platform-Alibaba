@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,18 @@
 
 package org.laokou.common.core.annotation;
 
-import org.laokou.common.core.config.TaskExecutorConfig;
+import org.laokou.common.core.config.AsyncConfig;
+import org.laokou.common.core.config.SpringTaskExecutorConfig;
 import org.springframework.context.annotation.Import;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 import java.lang.annotation.*;
 
 @Documented
+@EnableAsync
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@Import(TaskExecutorConfig.class)
+@Import({ SpringTaskExecutorConfig.class, AsyncConfig.class })
 public @interface EnableTaskExecutor {
 
 }

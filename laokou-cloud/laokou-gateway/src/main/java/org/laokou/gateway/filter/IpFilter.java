@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,8 @@ package org.laokou.gateway.filter;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.laokou.gateway.ip.Ip;
-import org.laokou.gateway.ip.IpProperties;
-import org.laokou.gateway.ip.Label;
-import org.laokou.gateway.utils.I18nUtil;
-import org.springframework.cloud.context.config.annotation.RefreshScope;
+import org.laokou.gateway.filter.ip.Ip;
+import org.laokou.gateway.utils.ReactiveI18nUtil;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.handler.predicate.RemoteAddrRoutePredicateFactory;
@@ -37,32 +34,22 @@ import reactor.core.publisher.Mono;
  *
  * @author laokou
  */
-@Component
 @Slf4j
-@RefreshScope
+@Component
 @RequiredArgsConstructor
 public class IpFilter implements GlobalFilter, Ordered {
 
-	private final Ip whiteIp;
-
-	private final Ip blackIp;
-
-	private final IpProperties ipProperties;
+	private final Ip ip;
 
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
 		try {
 			// 国际化
-			I18nUtil.set(exchange);
-			if (ipProperties.isEnabled()) {
-				return validate(exchange, ipProperties.getLabel(), chain);
-			}
-			else {
-				return chain.filter(exchange);
-			}
+			ReactiveI18nUtil.set(exchange);
+			return validate(exchange, chain);
 		}
 		finally {
-			I18nUtil.reset();
+			ReactiveI18nUtil.reset();
 		}
 	}
 
@@ -74,16 +61,11 @@ public class IpFilter implements GlobalFilter, Ordered {
 	/**
 	 * 校验IP并响应.
 	 * @param exchange 服务网络交换机
-	 * @param label 标签
 	 * @param chain 链式过滤器
 	 * @return 响应结果
 	 */
-	private Mono<Void> validate(ServerWebExchange exchange, String label, GatewayFilterChain chain) {
-		Label instance = Label.getInstance(label.toUpperCase());
-		return switch (instance) {
-			case WHITE -> whiteIp.validate(exchange, chain);
-			case BLACK -> blackIp.validate(exchange, chain);
-		};
+	private Mono<Void> validate(ServerWebExchange exchange, GatewayFilterChain chain) {
+		return ip.validate(exchange, chain);
 	}
 
 }

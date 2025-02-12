@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,9 @@
 package org.laokou.common.core.utils;
 
 import lombok.extern.slf4j.Slf4j;
-import org.laokou.common.i18n.utils.ObjectUtils;
+import org.laokou.common.i18n.utils.ObjectUtil;
 import org.springframework.beans.BeanUtils;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -30,7 +31,10 @@ import java.util.List;
  * @author laokou
  */
 @Slf4j
-public class ConvertUtil extends BeanUtils {
+public final class ConvertUtil extends BeanUtils {
+
+	private ConvertUtil() {
+	}
 
 	/**
 	 * 复制对象.
@@ -40,7 +44,7 @@ public class ConvertUtil extends BeanUtils {
 	 * @return 目标对象
 	 */
 	public static <T> T sourceToTarget(Object source, Class<T> target) {
-		if (ObjectUtils.isNull(source)) {
+		if (ObjectUtil.isNull(source)) {
 			return null;
 		}
 		T targetObject = null;

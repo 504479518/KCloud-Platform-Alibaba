@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,82 +17,54 @@
 
 package org.laokou.common.i18n.dto;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.experimental.SuperBuilder;
-import org.laokou.common.i18n.common.exception.AuthException;
-import org.laokou.common.i18n.common.exception.SystemException;
-import org.laokou.common.i18n.utils.ObjectUtils;
-import org.laokou.common.i18n.utils.ValidatorUtils;
+import lombok.Getter;
+import org.laokou.common.i18n.utils.DateUtil;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import static lombok.AccessLevel.PROTECTED;
-import static org.laokou.common.i18n.common.exception.ParamException.OAUTH2_TENANT_ID_REQUIRE;
-import static org.laokou.common.i18n.common.exception.ParamException.SYSTEM_ID_REQUIRE;
-
 /**
+ * 聚合根.
+ *
  * @author laokou
  */
-@Data
-@SuperBuilder
-@AllArgsConstructor(access = PROTECTED)
-@NoArgsConstructor(access = PROTECTED)
-@Schema(name = "AggregateRoot", description = "聚合根")
-public abstract class AggregateRoot<ID> extends Identifier<ID> {
+@Getter
+public abstract class AggregateRoot extends Identifier {
 
-	@Schema(name = CREATOR, description = "创建人")
-	protected ID creator;
+	/**
+	 * 操作时间.
+	 */
+	protected final Instant instant = DateUtil.nowInstant();
 
-	@Schema(name = EDITOR, description = "编辑人")
-	protected ID editor;
+	/**
+	 * 事件集合.
+	 */
+	private final List<DomainEvent> EVENTS = new ArrayList<>(16);
 
-	@Schema(name = DEPT_ID, description = "部门ID")
-	protected ID deptId;
+	/**
+	 * 租户ID.
+	 */
+	protected Long tenantId;
 
-	@Schema(name = DEPT_PATH, description = "部门PATH")
-	protected String deptPath;
+	/**
+	 * 用户ID.
+	 */
+	protected Long userId;
 
-	@Schema(name = TENANT_ID, description = "租户ID")
-	protected ID tenantId;
+	/**
+	 * 版本号.
+	 */
+	protected int version = 0;
 
-	@Schema(name = CREATE_DATE, description = "创建时间")
-	protected LocalDateTime createDate;
-
-	@Schema(name = UPDATE_DATE, description = "修改时间")
-	protected LocalDateTime updateDate;
-
-	@Schema(name = "events", description = "事件集合")
-	private List<DomainEvent<ID>> events;
-
-	public void checkNullId() {
-		if (ObjectUtils.isNull(this.id)) {
-			throw new SystemException(SYSTEM_ID_REQUIRE, ValidatorUtils.getMessage(SYSTEM_ID_REQUIRE));
-		}
+	protected void addEvent(DomainEvent event) {
+		EVENTS.add(event);
 	}
 
-	protected void checkNullTenantId() {
-		if (ObjectUtils.isNull(this.tenantId)) {
-			throw new AuthException(OAUTH2_TENANT_ID_REQUIRE, ValidatorUtils.getMessage(OAUTH2_TENANT_ID_REQUIRE));
-		}
-	}
-
-	protected void addEvent(DomainEvent<ID> event) {
-		events().add(event);
-	}
-
-	public void clearEvents() {
-		events = null;
-	}
-
-	private List<DomainEvent<ID>> events() {
-		if (ObjectUtils.isNull(events)) {
-			events = new ArrayList<>(16);
-		}
+	public List<DomainEvent> releaseEvents() {
+		List<DomainEvent> events = new ArrayList<>(EVENTS.size());
+		events.addAll(EVENTS);
+		EVENTS.clear();
 		return events;
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,36 +17,33 @@
 
 package org.laokou.common.mybatisplus.config;
 
+import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.autoconfigure.ConfigurationCustomizer;
 import com.baomidou.mybatisplus.core.incrementer.DefaultIdentifierGenerator;
 import com.baomidou.mybatisplus.core.incrementer.IdentifierGenerator;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.parser.JsqlParserGlobal;
-import com.baomidou.mybatisplus.extension.parser.cache.JdkSerialCaffeineJsqlParseCache;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
-import com.baomidou.mybatisplus.extension.plugins.inner.*;
+import com.baomidou.mybatisplus.extension.plugins.inner.BlockAttackInnerInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.DynamicTableNameInnerInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.OptimisticLockerInnerInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.SneakyThrows;
+import org.laokou.common.core.utils.ThreadUtil;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
-import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.util.StringUtils;
 
 import javax.sql.DataSource;
 import java.net.InetAddress;
-import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-
-import static org.laokou.common.i18n.common.PropertiesConstant.SPRING_APPLICATION_NAME;
-import static org.laokou.common.i18n.common.StringConstant.TRUE;
-import static org.laokou.common.i18n.common.SysConstants.APPLICATION;
 
 /**
  * mybatis-plus配置.
@@ -55,33 +52,39 @@ import static org.laokou.common.i18n.common.SysConstants.APPLICATION;
  */
 @AutoConfiguration
 @ConditionalOnClass({ DataSource.class })
-@MapperScan("org.laokou.common.mybatisplus.repository")
+@MapperScan("org.laokou.common.mybatisplus.mapper")
 public class MybatisPlusAutoConfig {
 
-	// 静态注入缓存处理类
 	static {
-		// 默认支持序列化 FstSerialCaffeineJsqlParseCache、JdkSerialCaffeineJsqlParseCache
-		JsqlParserGlobal.setJsqlParseCache(new JdkSerialCaffeineJsqlParseCache(
-				cache -> cache.maximumSize(1024).expireAfterWrite(5, TimeUnit.SECONDS)));
+		JsqlParserGlobal.setJsqlParseCache(new FurySerialCaffeineJsqlParseCache(
+				Caffeine.newBuilder().maximumSize(4096).expireAfterWrite(10, TimeUnit.MINUTES).build()));
 	}
 
 	@Bean
-	@ConditionalOnProperty(havingValue = TRUE, prefix = "mybatis-plus.slow-sql", name = "enabled")
-	public ConfigurationCustomizer slowSqlConfigurationCustomizer(ConfigurableEnvironment environment,
-			MybatisPlusExtProperties mybatisPlusExtProperties) {
-		SlowSqlInterceptor slowSqlInterceptor = new SlowSqlInterceptor();
-		slowSqlInterceptor.setProperties(properties(environment, mybatisPlusExtProperties));
-		return configuration -> configuration.addInterceptor(slowSqlInterceptor);
+	public ConfigurationCustomizer configurationCustomizer(MybatisPlusExtProperties mybatisPlusExtProperties) {
+		return configuration -> {
+			// 异步查询count
+			configuration.addInterceptor(new AsyncCountInterceptor());
+			// 慢SQL
+			SqlMonitorInterceptor sqlMonitorInterceptor = new SqlMonitorInterceptor(mybatisPlusExtProperties);
+			configuration.addInterceptor(sqlMonitorInterceptor);
+		};
 	}
 
+	// @formatter:off
 	/**
-	 * 注意: 使用多个功能需要注意顺序关系,建议使用如下顺序 - 多租户,动态表名 - 分页,乐观锁 - sql 性能规范,防止全表更新与删除 总结: 对 sql
-	 * 进行单次改造的优先放入,不对 sql 进行改造的最后放入.
+	 * 注意: 使用多个功能需要注意顺序关系,建议使用如下顺序
+	 * 											- 多租户，动态表名
+	 * 											- 分页，乐观锁
+	 * 											- sql性能规范，防止全表更新与删除
+	 * 总结：对 sql进行单次改造的优先放入,不对 sql 进行改造的最后放入.
 	 * @param mybatisPlusExtProperties mybatis配置
 	 */
+	// @formatter:on
 	@Bean
 	@ConditionalOnMissingBean(MybatisPlusInterceptor.class)
-	public MybatisPlusInterceptor mybatisPlusInterceptor(MybatisPlusExtProperties mybatisPlusExtProperties) {
+	public MybatisPlusInterceptor mybatisPlusInterceptor(MybatisPlusExtProperties mybatisPlusExtProperties,
+			DataSource dataSource) {
 		MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
 		// 数据权限插件
 		interceptor.addInnerInterceptor(new DataFilterInterceptor());
@@ -95,7 +98,7 @@ public class MybatisPlusAutoConfig {
 		dynamicTableNameInnerInterceptor.setTableNameHandler(new DynamicTableNameHandler());
 		interceptor.addInnerInterceptor(dynamicTableNameInnerInterceptor);
 		// 分页插件
-		interceptor.addInnerInterceptor(paginationInnerInterceptor());
+		interceptor.addInnerInterceptor(asyncPaginationInnerInterceptor(dataSource));
 		// 乐观锁插件
 		interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
 		// 防止全表更新与删除插件
@@ -133,38 +136,19 @@ public class MybatisPlusAutoConfig {
 	}
 
 	/**
-	 * 自定义sql注入器.
+	 * 异步分页. 解除每页500条限制.
 	 */
-	@Bean
-	public MybatisPlusSqlInjector mybatisPlusSqlInjector() {
-		return new MybatisPlusSqlInjector();
-	}
-
-	/**
-	 * 解除每页500条限制.
-	 */
-	private PaginationInnerInterceptor paginationInnerInterceptor() {
-		PaginationInnerInterceptor paginationInnerInterceptor = new PaginationInnerInterceptor();
+	private AsyncPaginationInnerInterceptor asyncPaginationInnerInterceptor(DataSource dataSource) {
+		// 使用postgresql，如果使用其他数据库，需要修改DbType
+		// 使用postgresql，如果使用其他数据库，需要修改DbType
+		// 使用postgresql，如果使用其他数据库，需要修改DbType
+		AsyncPaginationInnerInterceptor asyncPaginationInnerInterceptor = new AsyncPaginationInnerInterceptor(
+				DbType.POSTGRE_SQL, dataSource, ThreadUtil.newVirtualTaskExecutor());
 		// -1表示不受限制
-		paginationInnerInterceptor.setMaxLimit(-1L);
+		asyncPaginationInnerInterceptor.setMaxLimit(-1L);
 		// 溢出总页数后是进行处理，查看源码就知道是干啥的
-		paginationInnerInterceptor.setOverflow(true);
-		return paginationInnerInterceptor;
-	}
-
-	private Properties properties(ConfigurableEnvironment environment,
-			MybatisPlusExtProperties mybatisPlusExtProperties) {
-		String appName = getApplicationId(environment);
-		long millis = mybatisPlusExtProperties.getSlowSql().getMillis().toMillis();
-		Properties properties = new Properties();
-		properties.setProperty("appName", appName);
-		properties.setProperty("millis", String.valueOf(millis));
-		return properties;
-	}
-
-	private String getApplicationId(ConfigurableEnvironment environment) {
-		String name = environment.getProperty(SPRING_APPLICATION_NAME);
-		return StringUtils.hasText(name) ? name : APPLICATION;
+		asyncPaginationInnerInterceptor.setOverflow(true);
+		return asyncPaginationInnerInterceptor;
 	}
 
 }

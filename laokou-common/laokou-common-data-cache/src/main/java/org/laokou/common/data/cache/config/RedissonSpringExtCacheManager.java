@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,16 +60,15 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static org.laokou.common.i18n.common.StringConstant.UNDER;
+import static org.laokou.common.i18n.common.constant.StringConstant.WELL_NO;
 
 /**
- * 数据缓存扩展管理类. A {@link org.springframework.cache.CacheManager} implementation backed by
+ * 数据缓存扩展管理类. {@link org.springframework.cache.CacheManager}. implementation backed by
  * Redisson instance.
  *
  * @author Nikita Koksharov
  * @author laokou
  * @see RedissonSpringCacheManager
- *
  */
 @Data
 @NonNullApi
@@ -86,13 +85,11 @@ public class RedissonSpringExtCacheManager implements CacheManager, ResourceLoad
 
 	/**
 	 * -- SETTER -- Set Codec instance shared between all Cache instances.
-	 *
 	 */
 	private Codec codec;
 
 	/**
 	 * -- SETTER -- Set Redisson instance.
-	 *
 	 */
 	private RedissonClient redisson;
 
@@ -132,7 +129,7 @@ public class RedissonSpringExtCacheManager implements CacheManager, ResourceLoad
 	@Override
 	public Cache getCache(String name) {
 
-		String[] values = name.split(UNDER);
+		String[] values = name.split(WELL_NO);
 		name = values[0];
 
 		Cache cache = instanceMap.get(name);

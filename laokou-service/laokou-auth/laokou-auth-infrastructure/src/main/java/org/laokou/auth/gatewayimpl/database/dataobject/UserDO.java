@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,50 +17,73 @@
 
 package org.laokou.auth.gatewayimpl.database.dataobject;
 
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
-import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
-import org.laokou.common.mybatisplus.repository.BaseDO;
-import org.laokou.common.mybatisplus.handler.CryptoTypeHandler;
-
+import org.laokou.common.mybatisplus.mapper.BaseDO;
 import java.io.Serial;
 
-import static org.laokou.common.i18n.common.DatasourceConstant.BOOT_SYS_USER;
-import static org.laokou.common.i18n.common.OAuth2Constants.*;
+import static org.laokou.common.tenant.constant.Constant.Master.USER_TABLE;
 
 /**
+ * 用户.
+ *
  * @author laokou
  */
 @Data
-@TableName(BOOT_SYS_USER)
-@Schema(name = "UserDO", description = "用户")
+@TableName(USER_TABLE)
 public class UserDO extends BaseDO {
 
 	@Serial
 	private static final long serialVersionUID = 1181289215379287683L;
 
-	@Schema(name = USERNAME, description = "用户名", example = "admin")
+	/**
+	 * 用户名.
+	 */
 	private String username;
 
-	@Schema(name = PASSWORD, description = "密码", example = "123456")
+	/**
+	 * 密码.
+	 */
 	private String password;
 
-	@Schema(name = "superAdmin", description = "超级管理员标识 0否 1是", example = "1")
+	/**
+	 * 超级管理员标识 0否 1是.
+	 */
 	private Integer superAdmin;
 
-	@Schema(name = "avatar", description = "头像", example = "https://pic.cnblogs.com/avatar/simple_avatar.gif")
+	/**
+	 * 头像.
+	 */
 	private String avatar;
 
-	@Schema(name = MAIL, description = "邮箱", example = "2413176044@qq.com")
-	@TableField(value = MAIL, typeHandler = CryptoTypeHandler.class)
+	/**
+	 * 邮箱.
+	 */
 	private String mail;
 
-	@Schema(name = "status", description = "用户状态 0正常 1锁定", example = "0")
+	/**
+	 * 用户状态 0启用 1禁用.
+	 */
 	private Integer status;
 
-	@Schema(name = MOBILE, description = "手机号", example = "18974432500")
-	@TableField(value = MOBILE, typeHandler = CryptoTypeHandler.class)
+	/**
+	 * 手机号.
+	 */
 	private String mobile;
+
+	/**
+	 * 用户名短语.
+	 */
+	private String usernamePhrase;
+
+	/**
+	 * 邮箱短语.
+	 */
+	private String mailPhrase;
+
+	/**
+	 * 手机号短语.
+	 */
+	private String mobilePhrase;
 
 }

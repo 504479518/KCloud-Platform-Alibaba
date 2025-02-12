@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@
 
 package org.laokou.common.lock.annotation;
 
-import org.laokou.common.lock.TypeEnum;
+import org.laokou.common.lock.Type;
 
 import java.lang.annotation.*;
 
-import static org.laokou.common.lock.TypeEnum.LOCK;
+import static org.laokou.common.lock.Type.LOCK;
 
 /**
  * 分布式式锁注解.
@@ -34,14 +34,14 @@ import static org.laokou.common.lock.TypeEnum.LOCK;
 public @interface Lock4j {
 
 	/**
-	 * 键.
+	 * 名称.
 	 */
-	String key();
+	String name();
 
 	/**
-	 * 过期时间 单位：毫秒 过期时间一定是要长于业务的执行时间.
+	 * key支持表达式.
 	 */
-	long expire() default 5000;
+	String key() default "";
 
 	/**
 	 * 获取锁超时时间 单位：毫秒 结合业务,建议该时间不宜设置过长,特别在并发高的情况下.
@@ -51,11 +51,11 @@ public @interface Lock4j {
 	/**
 	 * 分布式锁类型.
 	 */
-	TypeEnum type() default LOCK;
+	Type type() default LOCK;
 
 	/**
-	 * 开启标识(解决公共模块用同一把锁).
+	 * 重试次数，默认3次.
 	 */
-	boolean enable() default false;
+	int retry() default 3;
 
 }

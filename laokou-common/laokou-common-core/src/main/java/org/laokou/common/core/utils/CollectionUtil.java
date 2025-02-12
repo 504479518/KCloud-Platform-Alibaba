@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,14 +26,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import static org.laokou.common.i18n.common.StringConstant.EMPTY;
+import static org.laokou.common.i18n.common.constant.StringConstant.EMPTY;
 
 /**
  * 集合工具类.
  *
  * @author laokou
  */
-public class CollectionUtil {
+public final class CollectionUtil {
+
+	private CollectionUtil() {
+	}
 
 	/**
 	 * 判断集合不为空.

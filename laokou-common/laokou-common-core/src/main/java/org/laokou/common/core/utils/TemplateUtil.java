@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,35 +19,46 @@ package org.laokou.common.core.utils;
 
 import freemarker.template.Configuration;
 import freemarker.template.Template;
-import freemarker.template.TemplateException;
+import lombok.extern.slf4j.Slf4j;
+import org.laokou.common.i18n.common.exception.SystemException;
 import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
+
 import java.io.IOException;
 import java.util.Map;
+
+import static freemarker.template.Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS;
 
 /**
  * 模板工具类.
  *
  * @author laokou
  */
-public class TemplateUtil extends FreeMarkerTemplateUtils {
+@Slf4j
+public final class TemplateUtil extends FreeMarkerTemplateUtils {
 
 	/**
 	 * 模板配置.
 	 */
-	private static final Configuration CONFIGURATION = new Configuration(
-			Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS);
+	private static final Configuration CONFIGURATION = new Configuration(DEFAULT_INCOMPATIBLE_IMPROVEMENTS);
+
+	private TemplateUtil() {
+	}
 
 	/**
 	 * 根据模板获取内容.
 	 * @param template 模板
 	 * @param params 参数
 	 * @return 内容
-	 * @throws IOException 异常
-	 * @throws TemplateException 异常
 	 */
-	public static String getContent(String template, Map<String, Object> params) throws IOException, TemplateException {
-		Template temp = getTemplate(template);
-		return FreeMarkerTemplateUtils.processTemplateIntoString(temp, params);
+	public static String getContent(String template, Map<String, Object> params) {
+		try {
+			Template temp = getTemplate(template);
+			return FreeMarkerTemplateUtils.processTemplateIntoString(temp, params);
+		}
+		catch (Exception e) {
+			log.error("错误信息：{}", e.getMessage());
+			throw new SystemException("S_UnKnow_Error", e.getMessage(), e);
+		}
 	}
 
 	/**

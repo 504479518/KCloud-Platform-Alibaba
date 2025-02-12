@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package org.laokou.common.lock;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.laokou.common.i18n.utils.ObjectUtils;
+import org.laokou.common.i18n.utils.ObjectUtil;
 import org.laokou.common.redis.utils.RedisUtil;
 import org.redisson.api.RLock;
 
@@ -36,32 +36,25 @@ public class RedissonLock extends AbstractLock<RLock> {
 
 	/**
 	 * 获取锁.
-	 * @param typeEnum 锁类型
+	 * @param type 锁类型
 	 * @param key 键
 	 * @return RLock
 	 */
 	@Override
-	public RLock getLock(TypeEnum typeEnum, String key) {
-		return switch (typeEnum) {
-			case LOCK -> redisUtil.getLock(key);
-			case FAIR_LOCK -> redisUtil.getFairLock(key);
-			case READ_LOCK -> redisUtil.getReadLock(key);
-			case WRITE_LOCK -> redisUtil.getWriteLock(key);
-			case FENCED_LOCK -> redisUtil.getFencedLock(key);
-		};
+	public RLock getLock(Type type, String key) {
+		return type.getLock(redisUtil, key);
 	}
 
 	/**
 	 * 尝试加锁.
 	 * @param lock 锁
-	 * @param expire 过期时间
 	 * @param timeout 超时时间
 	 */
 	@Override
-	public Boolean tryLock(RLock lock, long expire, long timeout) throws InterruptedException {
+	public boolean tryLock(RLock lock, long timeout) throws InterruptedException {
 		// 线程名称
 		String threadName = Thread.currentThread().getName();
-		if (redisUtil.tryLock(lock, expire, timeout)) {
+		if (redisUtil.tryLock(lock, timeout)) {
 			log.info("线程：{}，加锁成功", threadName);
 			return true;
 		}
@@ -77,16 +70,11 @@ public class RedissonLock extends AbstractLock<RLock> {
 	 */
 	@Override
 	public void unlock(RLock lock) {
-		if (ObjectUtils.isNotNull(lock)) {
-			// 线程名称
-			String threadName = Thread.currentThread().getName();
-			if (redisUtil.isLocked(lock)) {
-				log.info("锁名：{}，线程：{}，该锁被线程持有", lock, threadName);
-				if (redisUtil.isHeldByCurrentThread(lock)) {
-					log.info("线程：{}，开始解锁", threadName);
-					redisUtil.unlock(lock);
-					log.info("解锁成功");
-				}
+		if (ObjectUtil.isNotNull(lock)) {
+			if (redisUtil.isLocked(lock) && redisUtil.isHeldByCurrentThread(lock)) {
+				log.info("分布式锁名：{}，线程名：{}，开始解锁", lock.getName(), Thread.currentThread().getName());
+				redisUtil.unlock(lock);
+				log.info("解锁成功");
 			}
 			else {
 				log.info("无线程持有，无需解锁");

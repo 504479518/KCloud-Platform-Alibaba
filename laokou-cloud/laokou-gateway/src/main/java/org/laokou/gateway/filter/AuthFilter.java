@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,36 +17,27 @@
 
 package org.laokou.gateway.filter;
 
-import com.alibaba.nacos.api.config.ConfigService;
-import com.alibaba.nacos.api.config.listener.Listener;
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.laokou.common.core.config.OAuth2ResourceServerProperties;
 import org.laokou.common.core.utils.MapUtil;
-import org.laokou.common.crypto.utils.RsaUtil;
+import org.laokou.common.core.utils.SpringUtil;
+import org.laokou.common.crypto.utils.RSAUtil;
 import org.laokou.common.i18n.dto.Result;
-import org.laokou.common.i18n.utils.LogUtil;
+import org.laokou.common.i18n.utils.ObjectUtil;
 import org.laokou.common.i18n.utils.StringUtil;
-import org.laokou.common.nacos.utils.ConfigUtil;
-import org.laokou.common.nacos.utils.ReactiveRequestUtil;
 import org.laokou.common.nacos.utils.ReactiveResponseUtil;
-import org.laokou.gateway.utils.I18nUtil;
+import org.laokou.gateway.utils.ReactiveI18nUtil;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.filter.factory.rewrite.CachedBodyOutputMessage;
 import org.springframework.cloud.gateway.filter.factory.rewrite.ModifyRequestBodyGatewayFilterFactory;
 import org.springframework.cloud.gateway.support.BodyInserterContext;
 import org.springframework.core.Ordered;
-import org.springframework.core.env.Environment;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ReactiveHttpOutputMessage;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
@@ -60,20 +51,14 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.function.Function;
 
-import static org.laokou.common.i18n.common.OAuth2Constants.*;
-import static org.laokou.common.i18n.common.PropertiesConstant.SPRING_APPLICATION_NAME;
-import static org.laokou.common.i18n.common.RequestHeaderConstants.AUTHORIZATION;
-import static org.laokou.common.i18n.common.StatusCode.UNAUTHORIZED;
-import static org.laokou.common.i18n.common.StringConstant.EMPTY;
-import static org.laokou.common.i18n.common.SysConstants.COMMON_DATA_ID;
+import static org.laokou.common.i18n.common.constant.Constant.AUTHORIZATION;
+import static org.laokou.common.i18n.common.constant.StringConstant.EMPTY;
+import static org.laokou.common.i18n.common.exception.StatusCode.UNAUTHORIZED;
 import static org.laokou.common.nacos.utils.ReactiveRequestUtil.*;
 import static org.springframework.http.HttpHeaders.CONTENT_LENGTH;
 import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
@@ -88,53 +73,73 @@ import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED_VAL
  */
 @Slf4j
 @Component
-@RefreshScope
 @RequiredArgsConstructor
 public class AuthFilter implements GlobalFilter, Ordered, InitializingBean {
 
-	@Schema(name = "CHUNKED", description = "Chunked")
-	public static final String CHUNKED = "chunked";
+	/**
+	 * 用户名.
+	 */
+	private static final String USERNAME = "username";
 
-	private final Environment env;
+	/**
+	 * 密码.
+	 */
+	private static final String PASSWORD = "password";
+
+	/**
+	 * 用户名密码认证【OAuth2】.
+	 */
+	private static final String USERNAME_PASSWORD = "username_password";
+
+	/**
+	 * 令牌URL.
+	 */
+	private static final String TOKEN_URL = "/oauth2/token";
+
+	/**
+	 * Chunked.
+	 */
+	private static final String CHUNKED = "chunked";
+
+	/**
+	 * 认证类型.
+	 */
+	private static final String GRANT_TYPE = "grant_type";
+
+	private final Map<String, Set<String>> URI_MAP = new HashMap<>();
 
 	private final OAuth2ResourceServerProperties oAuth2ResourceServerProperties;
 
-	private volatile Map<String, Set<String>> urlMap;
+	private final SpringUtil springUtil;
 
-	private final ConfigUtil configUtil;
-
+	// @formatter:off
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
 		try {
 			// 国际化
-			I18nUtil.set(exchange);
+			ReactiveI18nUtil.set(exchange);
 			// 获取request对象
 			ServerHttpRequest request = exchange.getRequest();
 			// 获取uri
 			String requestURL = getRequestURL(request);
 			// 请求放行，无需验证权限
-			if (pathMatcher(getMethodName(request), requestURL, urlMap)) {
+			if (pathMatcher(getMethodName(request), requestURL, URI_MAP)) {
 				// 无需验证权限的URL，需要将令牌置空
-				return chain
-					.filter(exchange.mutate().request(request.mutate().header(AUTHORIZATION, EMPTY).build()).build());
+				return chain.filter(exchange.mutate().request(request.mutate().header(AUTHORIZATION, EMPTY).build()).build());
 			}
-			// 表单提交
-			MediaType mediaType = getContentType(request);
-			if (requestURL.contains(TOKEN_URL) && POST.matches(getMethodName(request))
-					&& APPLICATION_FORM_URLENCODED.isCompatibleWith(mediaType)) {
-				return decode(exchange, chain);
+			if (requestURL.contains(TOKEN_URL) && POST.matches(getMethodName(request)) && APPLICATION_FORM_URLENCODED.isCompatibleWith(getContentType(request))) {
+				return decodeOAuth2Password(exchange, chain);
 			}
 			// 获取token
-			String token = ReactiveRequestUtil.getParamValue(request, AUTHORIZATION);
+			String token = getParamValue(request, AUTHORIZATION);
 			if (StringUtil.isEmpty(token)) {
-				return ReactiveResponseUtil.response(exchange, Result.fail(UNAUTHORIZED));
+				return ReactiveResponseUtil.responseOk(exchange, Result.fail(UNAUTHORIZED));
 			}
 			// 增加令牌
-			return chain
-				.filter(exchange.mutate().request(request.mutate().header(AUTHORIZATION, token).build()).build());
+			return chain.filter(exchange.mutate().request(request.mutate().header(AUTHORIZATION, token).build()).build());
 		}
 		finally {
-			I18nUtil.reset();
+			ReactiveI18nUtil.reset();
 		}
 	}
 
@@ -149,20 +154,16 @@ public class AuthFilter implements GlobalFilter, Ordered, InitializingBean {
 	 * @param exchange exchange
 	 * @return 响应式
 	 */
-	private Mono<Void> decode(ServerWebExchange exchange, GatewayFilterChain chain) {
+	private Mono<Void> decodeOAuth2Password(ServerWebExchange exchange, GatewayFilterChain chain) {
 		ServerRequest serverRequest = ServerRequest.create(exchange, HandlerStrategies.withDefaults().messageReaders());
 		Mono<String> modifiedBody = serverRequest.bodyToMono(String.class).flatMap(decrypt());
-		BodyInserter<Mono<String>, ReactiveHttpOutputMessage> bodyInserter = BodyInserters.fromPublisher(modifiedBody,
-				String.class);
+		BodyInserter<Mono<String>, ReactiveHttpOutputMessage> bodyInserter = BodyInserters.fromPublisher(modifiedBody, String.class);
 		HttpHeaders headers = new HttpHeaders();
 		headers.putAll(exchange.getRequest().getHeaders());
 		headers.remove(CONTENT_LENGTH);
 		headers.set(CONTENT_TYPE, APPLICATION_FORM_URLENCODED_VALUE);
 		CachedBodyOutputMessage outputMessage = new CachedBodyOutputMessage(exchange, headers);
-		return bodyInserter.insert(outputMessage, new BodyInserterContext()).then(Mono.defer(() -> {
-			ServerHttpRequest decorator = requestDecorator(exchange, headers, outputMessage);
-			return chain.filter(exchange.mutate().request(decorator).build());
-		})).onErrorResume((Function<Throwable, Mono<Void>>) throwable -> release(outputMessage, throwable));
+		return bodyInserter.insert(outputMessage, new BodyInserterContext()).then(Mono.defer(() -> chain.filter(exchange.mutate().request(requestDecorator(exchange, headers, outputMessage)).build()))).onErrorResume((Function<Throwable, Mono<Void>>) throwable -> release(outputMessage, throwable));
 	}
 
 	/**
@@ -176,29 +177,27 @@ public class AuthFilter implements GlobalFilter, Ordered, InitializingBean {
 	}
 
 	/**
-	 * 账号/密码 解密.
+	 * 用户名/密码 解密.
 	 * @return 解密结果
 	 */
 	private Function<String, Mono<String>> decrypt() {
 		return s -> {
 			// 获取请求密码并解密
 			Map<String, String> paramMap = MapUtil.parseParamMap(s);
-			if (paramMap.containsKey(PASSWORD) && paramMap.containsKey(USERNAME)) {
-				// log.info("密码模式认证");
+			if (ObjectUtil.equals(USERNAME_PASSWORD, paramMap.getOrDefault(GRANT_TYPE, EMPTY)) && paramMap.containsKey(PASSWORD) && paramMap.containsKey(USERNAME)) {
 				try {
-					String privateKey = RsaUtil.getPrivateKey();
 					String password = paramMap.get(PASSWORD);
 					String username = paramMap.get(USERNAME);
 					// 返回修改后报文字符
 					if (StringUtil.isNotEmpty(password)) {
-						paramMap.put(PASSWORD, RsaUtil.decryptByPrivateKey(password, privateKey));
+						paramMap.put(PASSWORD, RSAUtil.decryptByPrivateKey(password));
 					}
 					if (StringUtil.isNotEmpty(username)) {
-						paramMap.put(USERNAME, RsaUtil.decryptByPrivateKey(username, privateKey));
+						paramMap.put(USERNAME, RSAUtil.decryptByPrivateKey(username));
 					}
 				}
 				catch (Exception e) {
-					log.error("错误信息：{}，详情见日志", LogUtil.record(e.getMessage()), e);
+					log.error("用户名密码认证模式，错误信息：{}", e.getMessage());
 				}
 			}
 			return Mono.just(MapUtil.parseParams(paramMap));
@@ -212,9 +211,9 @@ public class AuthFilter implements GlobalFilter, Ordered, InitializingBean {
 	 * @param outputMessage 输出消息
 	 * @return 请求装饰器
 	 */
-	private ServerHttpRequestDecorator requestDecorator(ServerWebExchange exchange, HttpHeaders headers,
-			CachedBodyOutputMessage outputMessage) {
+	private ServerHttpRequestDecorator requestDecorator(ServerWebExchange exchange, HttpHeaders headers, CachedBodyOutputMessage outputMessage) {
 		return new ServerHttpRequestDecorator(exchange.getRequest()) {
+
 			@Override
 			@NonNull
 			public HttpHeaders getHeaders() {
@@ -238,37 +237,10 @@ public class AuthFilter implements GlobalFilter, Ordered, InitializingBean {
 		};
 	}
 
-	/**
-	 * 订阅nacos消息通知，用于实时更新白名单URL.
-	 */
-	@PostConstruct
-	@SneakyThrows
-	public void initURL() {
-		String group = configUtil.getGroup();
-		ConfigService configService = configUtil.getConfigService();
-		configService.addListener(COMMON_DATA_ID, group, new Listener() {
-			@Override
-			public Executor getExecutor() {
-				return Executors.newSingleThreadExecutor();
-			}
-
-			@Override
-			public void receiveConfigInfo(String configInfo) {
-				log.info("接收到URL变动通知");
-				initURLMap();
-			}
-		});
-	}
-
 	@Override
 	public void afterPropertiesSet() {
-		initURLMap();
+		URI_MAP.putAll(MapUtil.toUriMap(oAuth2ResourceServerProperties.getRequestMatcher().getIgnorePatterns(), springUtil.getServiceId()));
 	}
-
-	private void initURLMap() {
-		urlMap = Optional.of(MapUtil.toUriMap(oAuth2ResourceServerProperties.getRequestMatcher().getIgnorePatterns(),
-				env.getProperty(SPRING_APPLICATION_NAME)))
-			.orElseGet(ConcurrentHashMap::new);
-	}
+	// @formatter:on
 
 }

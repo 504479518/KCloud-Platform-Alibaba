@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,47 +18,24 @@
 package org.laokou.common.core.utils;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.experimental.SuperBuilder;
-import org.laokou.common.i18n.common.exception.SystemException;
-import org.laokou.common.i18n.utils.ObjectUtils;
+import org.laokou.common.i18n.dto.ClientObject;
+import org.laokou.common.i18n.utils.ObjectUtil;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import static lombok.AccessLevel.PROTECTED;
-import static org.laokou.common.i18n.common.StringConstant.COMMA;
 
 /**
  * 树节菜单工具类.
  *
  * @author laokou
  */
-@Data
-public class TreeUtil {
+public final class TreeUtil {
 
-	/**
-	 * 顶级菜单节点.
-	 * @param name 名称
-	 * @param <T> 泛型
-	 * @return 顶级菜单节点
-	 */
-	public static <T> TreeNode<T> rootRootNode(String name) {
-		return new TreeNode<>(0L, name, null, "0", new ArrayList<>(0));
-	}
-
-	/**
-	 * 顶级菜单节点.
-	 * @param <T> 泛型
-	 * @return 顶级菜单节点
-	 */
-	public static <T> TreeNode<T> rootRootNode() {
-		return rootRootNode("根节点");
+	private TreeUtil() {
 	}
 
 	/**
@@ -69,7 +46,16 @@ public class TreeUtil {
 	 * @return 树节点
 	 */
 	public static <T extends TreeNode<T>> T buildTreeNode(List<T> treeNodes, Class<T> clazz) {
-		return buildTreeNode(treeNodes, ConvertUtil.sourceToTarget(rootRootNode(), clazz));
+		return buildTreeNode(treeNodes, ConvertUtil.sourceToTarget(rootNode(), clazz));
+	}
+
+	/**
+	 * 顶级树节点.
+	 * @param <T> 泛型
+	 * @return 顶级菜单节点
+	 */
+	private static <T> TreeNode<T> rootNode() {
+		return new TreeNode<>(0L, "根节点", null);
 	}
 
 	/**
@@ -79,48 +65,49 @@ public class TreeUtil {
 	 * @param <T> 泛型
 	 * @return 树节点
 	 */
-	public static <T extends TreeNode<T>> T buildTreeNode(List<T> treeNodes, T rootNode) {
-		if (ObjectUtils.isNull(rootNode)) {
-			throw new SystemException("请构造根节点");
+	private static <T extends TreeNode<T>> T buildTreeNode(List<T> treeNodes, T rootNode) {
+		if (ObjectUtil.isNull(rootNode)) {
+			throw new RuntimeException("请构造根节点");
 		}
 		List<T> nodes = new ArrayList<>(treeNodes);
+		// 添加根节点
 		nodes.add(rootNode);
 		// list转map
 		Map<Long, T> nodeMap = new LinkedHashMap<>(nodes.size());
 		for (T node : nodes) {
 			nodeMap.put(node.getId(), node);
 		}
-		for (T treeNo : nodes) {
-			T parent = nodeMap.get(treeNo.getPid());
-			if (ObjectUtils.isNotNull(parent) && treeNo.getPid().equals(parent.getId())) {
-				treeNo.setPath(parent.getPath() + COMMA + treeNo.getId());
-				parent.getChildren().add(treeNo);
+		for (T node : nodes) {
+			T parentNode = nodeMap.get(node.getPid());
+			if (ObjectUtil.isNotNull(parentNode) && ObjectUtil.equals(node.getPid(), parentNode.getId())) {
+				parentNode.getChildren().add(node);
 			}
 		}
 		return rootNode;
 	}
 
 	@Data
-	@SuperBuilder
-	@AllArgsConstructor(access = PROTECTED)
-	@NoArgsConstructor(access = PROTECTED)
-	@Schema(name = "TreeNode", description = "树节点")
-	public static class TreeNode<T> implements Serializable {
+	@NoArgsConstructor
+	@Schema(name = "树节点", description = "树节点")
+	public static class TreeNode<T> extends ClientObject {
 
-		@Schema(name = "id", description = "ID")
-		private Long id;
+		@Schema(name = "ID", description = "ID")
+		protected Long id;
 
-		@Schema(name = "name", description = "名称")
-		private String name;
+		@Schema(name = "名称", description = "名称")
+		protected String name;
 
-		@Schema(name = "pid", description = "父节点ID")
-		private Long pid;
+		@Schema(name = "父节点ID", description = "父节点ID")
+		protected Long pid;
 
-		@Schema(name = "path", description = "节点PATH")
-		private String path;
+		@Schema(name = "子节点", description = "子节点")
+		protected List<T> children = new ArrayList<>(16);
 
-		@Schema(name = "children", description = "子节点")
-		private List<T> children = new ArrayList<>(16);
+		public TreeNode(Long id, String name, Long pid) {
+			this.id = id;
+			this.name = name;
+			this.pid = pid;
+		}
 
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,15 @@
 
 package org.laokou.common.security.config;
 
-import com.baomidou.dynamic.datasource.annotation.Master;
 import io.micrometer.common.lang.NonNullApi;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.laokou.common.i18n.utils.ObjectUtils;
-import org.laokou.common.redis.utils.RedisKeyUtil;
-import org.laokou.common.redis.utils.RedisUtil;
+import org.laokou.common.i18n.common.exception.GlobalException;
+import org.laokou.common.i18n.utils.DateUtil;
+import org.laokou.common.i18n.utils.ObjectUtil;
 import org.laokou.common.security.handler.OAuth2ExceptionHandler;
 import org.laokou.common.security.utils.UserDetail;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.laokou.common.tenant.annotation.Master;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
@@ -38,57 +37,43 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.security.Principal;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Objects;
-
-import static org.laokou.common.i18n.common.StatusCode.UNAUTHORIZED;
-import static org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames.ACCESS_TOKEN;
+import static org.laokou.common.i18n.common.exception.StatusCode.UNAUTHORIZED;
+import static org.laokou.common.security.handler.OAuth2ExceptionHandler.ERROR_URL;
+import static org.laokou.common.security.handler.OAuth2ExceptionHandler.getOAuth2AuthenticationException;
 
 /**
  * @author laokou
  */
 @Slf4j
 @NonNullApi
-@AutoConfiguration
 @RequiredArgsConstructor
 public class GlobalOpaqueTokenIntrospector implements OpaqueTokenIntrospector, WebMvcConfigurer {
 
+	public static final OAuth2TokenType FULL = new OAuth2TokenType(RedisOAuth2AuthorizationService.FULL);
+
 	private final OAuth2AuthorizationService oAuth2AuthorizationService;
 
-	private final UserContextInterceptor userContextInterceptor;
-
-	private final RedisUtil redisUtil;
-
-	@Master
+	// @formatter:off
+    @Master
 	@Override
 	public OAuth2AuthenticatedPrincipal introspect(String token) {
-		// 用户相关数据，低命中率且数据庞大放redis稳妥，分布式集群需要通过redis实现数据共享
-		String userInfoKey = RedisKeyUtil.getUserInfoKey(token);
-		Object obj = redisUtil.get(userInfoKey);
-		if (ObjectUtils.isNotNull(obj)) {
-			// 解密
-			return decryptInfo((UserDetail) obj);
-		}
-		OAuth2Authorization authorization = oAuth2AuthorizationService.findByToken(token,
-				new OAuth2TokenType(ACCESS_TOKEN));
-		if (ObjectUtils.isNull(authorization)) {
+		// 低命中率且数据庞大放redis稳妥，分布式集群需要通过redis实现数据共享
+		OAuth2Authorization authorization = oAuth2AuthorizationService.findByToken(token, FULL);
+		if (ObjectUtil.isNull(authorization)) {
 			throw OAuth2ExceptionHandler.getException(UNAUTHORIZED);
 		}
 		OAuth2Authorization.Token<OAuth2AccessToken> accessToken = authorization.getAccessToken();
-		Instant expiresAt = accessToken.getToken().getExpiresAt();
-		Instant nowAt = Instant.now();
-		long expireTime = ChronoUnit.SECONDS.between(nowAt, expiresAt);
-		// 5秒后过期
-		long minTime = 5;
-		if (expireTime > minTime) {
-			Object principal = ((UsernamePasswordAuthenticationToken) Objects
-				.requireNonNull(authorization.getAttribute(Principal.class.getName()))).getPrincipal();
-			UserDetail userDetail = (UserDetail) principal;
-			redisUtil.set(userInfoKey, userDetail, expireTime - 1);
-			// 解密
-			return decryptInfo(userDetail);
+		long expireTime = DateUtil.betweenSeconds(DateUtil.nowInstant(), accessToken.getToken().getExpiresAt());
+		if (expireTime > 0) {
+            Object obj = authorization.getAttribute(Principal.class.getName());
+            if (ObjectUtil.isNotNull(obj)) {
+                UserDetail userDetail = (UserDetail) ((UsernamePasswordAuthenticationToken) obj).getPrincipal();
+                // 解密
+                return decryptInfo(userDetail);
+            }
 		}
+		// 移除
+		oAuth2AuthorizationService.remove(authorization);
 		throw OAuth2ExceptionHandler.getException(UNAUTHORIZED);
 	}
 	// @formatter:on
@@ -99,14 +84,18 @@ public class GlobalOpaqueTokenIntrospector implements OpaqueTokenIntrospector, W
 	 * @return UserDetail
 	 */
 	private UserDetail decryptInfo(UserDetail userDetail) {
-		// 解密
-		userDetail.decrypt();
-		return userDetail;
+		try {
+			// 解密
+			return userDetail.getDecryptInfo();
+		}
+		catch (GlobalException e) {
+			throw getOAuth2AuthenticationException(e.getCode(), e.getMsg(), ERROR_URL);
+		}
 	}
 
 	@Override
 	public void addInterceptors(InterceptorRegistry registry) {
-		registry.addInterceptor(userContextInterceptor);
+		registry.addInterceptor(new UserContextInterceptor()).addPathPatterns("/**");
 	}
 
 }

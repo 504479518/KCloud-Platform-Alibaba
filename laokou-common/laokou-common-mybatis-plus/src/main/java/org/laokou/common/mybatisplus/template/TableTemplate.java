@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package org.laokou.common.mybatisplus.template;
 
 import com.google.common.base.CaseFormat;
 import lombok.extern.slf4j.Slf4j;
-import org.laokou.common.i18n.utils.DateUtils;
+import org.laokou.common.i18n.utils.DateUtil;
 import org.laokou.common.i18n.utils.StringUtil;
 
 import java.time.LocalDate;
@@ -27,8 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static org.laokou.common.i18n.common.DatasourceConstant.INSERT_SQL_TEMPLATE;
-import static org.laokou.common.i18n.common.StringConstant.*;
+import static org.laokou.common.i18n.common.constant.StringConstant.*;
 
 /**
  * @author laokou
@@ -39,11 +38,11 @@ public class TableTemplate {
 	public static List<String> getDynamicTables(String start, String end, String tableName) {
 		LocalDate date1 = toDate(start);
 		LocalDate date2 = toDate(end);
-		int subMonths = (int) (DateUtils.getMonths(date1, date2) + 1);
+		int subMonths = (int) (DateUtil.getMonths(date1, date2) + 1);
 		List<String> list = new ArrayList<>(subMonths);
-		while (DateUtils.isBefore(date1, date2) || date1.equals(date2)) {
-			list.add(tableName.concat(UNDER).concat(DateUtils.format(date1, DateUtils.YYYYMM)));
-			date1 = DateUtils.plusMonths(date1, 1);
+		while (DateUtil.isBefore(date1, date2) || date1.equals(date2)) {
+			list.add(tableName.concat(UNDER).concat(DateUtil.format(date1, DateUtil.YYYYMM)));
+			date1 = DateUtil.plusMonths(date1, 1);
 		}
 		return list;
 	}
@@ -60,9 +59,9 @@ public class TableTemplate {
 				.stream()
 				.map(i -> SINGLE_QUOT + StringUtil.empty(i) + SINGLE_QUOT)
 				.toList();
-			String sql = String.format(INSERT_SQL_TEMPLATE, tableName,
-					StringUtil.collectionToDelimitedString(keys, COMMA),
-					StringUtil.collectionToDelimitedString(values, COMMA));
+			String sql = "";// String.format(INSERT_SQL_TEMPLATE, tableName,
+			// StringUtil.collectionToDelimitedString(keys, COMMA),
+			// StringUtil.collectionToDelimitedString(values, COMMA));
 			sqlList.add(sql);
 		});
 		return sqlList;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 
 package org.laokou.auth.api;
 
+import org.laokou.auth.dto.clientobject.SecretCO;
 import org.laokou.common.i18n.dto.Result;
 
 /**
@@ -30,6 +31,6 @@ public interface SecretsServiceI {
 	 * 获取密钥.
 	 * @return 密钥
 	 */
-	Result<String> find();
+	Result<SecretCO> getInfo();
 
 }

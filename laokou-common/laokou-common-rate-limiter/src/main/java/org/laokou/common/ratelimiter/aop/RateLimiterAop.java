@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,62 +17,58 @@
 
 package org.laokou.common.ratelimiter.aop;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.aspectj.lang.JoinPoint;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.annotation.Before;
-import org.aspectj.lang.reflect.MethodSignature;
-import org.laokou.common.i18n.utils.ObjectUtils;
+import org.laokou.common.core.utils.RequestUtil;
+import org.laokou.common.i18n.common.exception.SystemException;
 import org.laokou.common.ratelimiter.annotation.RateLimiter;
-import org.laokou.common.ratelimiter.driver.KeyManager;
 import org.laokou.common.redis.utils.RedisUtil;
-import org.redisson.api.RateIntervalUnit;
 import org.redisson.api.RateType;
-import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
-import org.springframework.util.Assert;
 
-import java.lang.reflect.Method;
+import java.time.Duration;
 
-import static org.laokou.common.i18n.common.StatusCode.TOO_MANY_REQUESTS;
-import static org.laokou.common.i18n.common.StringConstant.UNDER;
+import static org.laokou.common.i18n.common.constant.StringConstant.UNDER;
+import static org.laokou.common.i18n.common.exception.StatusCode.TOO_MANY_REQUESTS;
 
 /**
  * 请查看 RequestRateLimiterGatewayFilterFactory.
  *
  * @author laokou
  */
-@Component
-@Aspect
 @Slf4j
+@Aspect
+@Component
 @RequiredArgsConstructor
 public class RateLimiterAop {
 
-	@Schema(name = "RATE_LIMITER_KEY", description = "限流Key")
-	public static final String RATE_LIMITER_KEY = "___%s_KEY___";
+	/**
+	 * 限流Key.
+	 */
+	private static final String RATE_LIMITER_KEY = "___%s_KEY___";
 
 	private final RedisUtil redisUtil;
 
-	@Before("@annotation(org.laokou.common.ratelimiter.annotation.RateLimiter)")
-	public void doBefore(JoinPoint point) {
-		MethodSignature signature = (MethodSignature) point.getSignature();
-		Method method = signature.getMethod();
-		RateLimiter rateLimiter = AnnotationUtils.findAnnotation(method, RateLimiter.class);
-		Assert.isTrue(ObjectUtils.isNotNull(rateLimiter), "@RateLimiter is null");
-		String key = getKey(rateLimiter.id().concat(UNDER).concat(KeyManager.key(rateLimiter.type())));
+	@Around("@annotation(rateLimiter)")
+	public Object doAround(ProceedingJoinPoint point, RateLimiter rateLimiter) throws Throwable {
+		String key = getKey(rateLimiter.key()
+			.concat(UNDER)
+			.concat(rateLimiter.type().resolve(RequestUtil.getHttpServletRequest())));
 		long rate = rateLimiter.rate();
+		long ttl = rateLimiter.ttl();
 		long interval = rateLimiter.interval();
-		RateIntervalUnit unit = rateLimiter.unit();
 		RateType mode = rateLimiter.mode();
-		if (!redisUtil.rateLimiter(key, mode, rate, interval, unit)) {
-			throw new RuntimeException(String.valueOf(TOO_MANY_REQUESTS));
+		if (!redisUtil.rateLimiter(key, mode, rate, Duration.ofSeconds(interval), Duration.ofSeconds(ttl))) {
+			throw new SystemException(TOO_MANY_REQUESTS);
 		}
+		return point.proceed();
 	}
 
-	private String getKey(String id) {
-		return "rate_limiter.{" + String.format(RATE_LIMITER_KEY, id) + "}.tokens";
+	private String getKey(String key) {
+		return "rate_limiter.{" + String.format(RATE_LIMITER_KEY, key) + "}.tokens";
 	}
 
 }

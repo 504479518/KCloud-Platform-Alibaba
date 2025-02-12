@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,13 +20,18 @@ package org.laokou.auth.gatewayimpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.laokou.auth.convertor.UserConvertor;
-import org.laokou.auth.domain.gateway.UserGateway;
-import org.laokou.auth.domain.user.User;
+import org.laokou.auth.gateway.UserGateway;
 import org.laokou.auth.gatewayimpl.database.UserMapper;
 import org.laokou.auth.gatewayimpl.database.dataobject.UserDO;
-import org.laokou.common.i18n.utils.LogUtil;
+import org.laokou.auth.model.UserE;
+import org.laokou.common.i18n.common.exception.SystemException;
+import org.laokou.common.i18n.utils.MessageUtil;
+import org.laokou.common.i18n.utils.ObjectUtil;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.stereotype.Component;
+
+import static org.laokou.common.i18n.common.exception.SystemException.OAuth2.DATA_TABLE_NOT_EXIST;
+import static org.laokou.common.tenant.constant.Constant.Master.USER_TABLE;
 
 /**
  * 用户.
@@ -40,24 +45,25 @@ public class UserGatewayImpl implements UserGateway {
 
 	private final UserMapper userMapper;
 
-	private final UserConvertor userConvertor;
-
 	/**
 	 * 查看用户信息.
 	 * @param user 用户对象
 	 * @return 用户信息
 	 */
 	@Override
-	public User find(User user) {
+	public UserE getProfile(UserE user, String tenantCode) {
 		try {
-			UserDO userDO = userMapper.selectByConditions(user.getUsername(), user.getAuth().getType(),
-					user.getAuth().getSecretKey());
-			return userConvertor.convertEntity(userDO);
+			UserDO userDO = userMapper.selectObj(UserConvertor.toDataObject(user), tenantCode);
+			return ObjectUtil.isNotNull(userDO) ? UserConvertor.toEntity(userDO) : null;
 		}
 		catch (BadSqlGrammarException e) {
-			log.error("表 boot_sys_user 不存在，错误信息：{}，详情见日志", LogUtil.record(e.getMessage()), e);
-			// throw new RuntimeException(CUSTOM_SERVER_ERROR, "表 boot_sys_user 不存在");
-			throw e;
+			log.error("表 {} 不存在，错误信息：{}", USER_TABLE, e.getMessage());
+			throw new SystemException(DATA_TABLE_NOT_EXIST,
+					MessageUtil.getMessage(DATA_TABLE_NOT_EXIST, new String[] { USER_TABLE }));
+		}
+		catch (Exception e) {
+			log.error("查询用户失败，错误信息：{}", e.getMessage());
+			throw new SystemException(SystemException.User.QUERY_FAILED);
 		}
 	}
 

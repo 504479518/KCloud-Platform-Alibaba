@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 KCloud-Platform-Alibaba Author or Authors. All Rights Reserved.
+ * Copyright (c) 2022-2025 KCloud-Platform-IoT Author or Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,14 @@
 
 package org.laokou.common.core.utils;
 
-import org.laokou.common.i18n.utils.ObjectUtils;
+import com.alibaba.ttl.threadpool.TtlExecutors;
+import lombok.extern.slf4j.Slf4j;
+import org.laokou.common.core.config.VirtualThreadFactory;
+import org.laokou.common.i18n.utils.ObjectUtil;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -28,7 +33,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  *
  * @author laokou
  */
-public class ThreadUtil {
+@Slf4j
+public final class ThreadUtil {
+
+	private ThreadUtil() {
+	}
 
 	/**
 	 * 关闭线程池.
@@ -36,7 +45,7 @@ public class ThreadUtil {
 	 * @param timeout 超时时间
 	 */
 	public static void shutdown(ExecutorService executorService, int timeout) {
-		if (ObjectUtils.isNotNull(executorService) && !executorService.isShutdown()) {
+		if (ObjectUtil.isNotNull(executorService) && !executorService.isShutdown()) {
 			executorService.shutdown();
 			try {
 				if (!executorService.awaitTermination(timeout, SECONDS)) {
@@ -47,7 +56,25 @@ public class ThreadUtil {
 				executorService.shutdownNow();
 				Thread.currentThread().interrupt();
 			}
+			finally {
+				log.info("关闭线程池");
+			}
 		}
+	}
+
+	/**
+	 * 新建一个虚拟线程池.
+	 */
+	public static ExecutorService newVirtualTaskExecutor() {
+		return Executors.newThreadPerTaskExecutor(VirtualThreadFactory.INSTANCE);
+	}
+
+	public static ExecutorService newTtlVirtualTaskExecutor() {
+		return TtlExecutors.getTtlExecutorService(newVirtualTaskExecutor());
+	}
+
+	public static ScheduledExecutorService newScheduledThreadPool(int coreSize) {
+		return Executors.newScheduledThreadPool(coreSize, VirtualThreadFactory.INSTANCE);
 	}
 
 }
