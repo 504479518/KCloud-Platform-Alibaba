@@ -21,10 +21,17 @@ import lombok.RequiredArgsConstructor;
 import org.laokou.admin.user.ability.UserDomainService;
 import org.laokou.admin.user.convertor.UserConvertor;
 import org.laokou.admin.user.dto.UserSaveCmd;
+import org.laokou.admin.user.gatewayimpl.database.UserMapper;
 import org.laokou.admin.user.model.UserE;
+import org.laokou.admin.user.service.extensionpoint.UserParamValidatorExtPt;
 import org.laokou.common.core.utils.IdGenerator;
+import org.laokou.common.extension.BizScenario;
+import org.laokou.common.extension.ExtensionExecutor;
 import org.laokou.common.mybatisplus.utils.TransactionalUtil;
 import org.springframework.stereotype.Component;
+
+import static org.laokou.admin.common.constant.Constant.*;
+import static org.laokou.common.i18n.common.constant.Constant.SCENARIO;
 
 /**
  * 保存用户命令执行器.
@@ -39,9 +46,15 @@ public class UserSaveCmdExe {
 
 	private final TransactionalUtil transactionalUtil;
 
+	private final ExtensionExecutor extensionExecutor;
+
+	private final UserMapper userMapper;
+
 	public void executeVoid(UserSaveCmd cmd) {
 		// 校验参数
 		UserE userE = UserConvertor.toEntity(cmd.getCo());
+		extensionExecutor.executeVoid(UserParamValidatorExtPt.class, BizScenario.valueOf(SAVE, USER, SCENARIO),
+				extension -> extension.validate(userE, userMapper));
 		userE.setId(IdGenerator.defaultSnowflakeId());
 		transactionalUtil.executeInTransaction(() -> userDomainService.create(userE));
 	}

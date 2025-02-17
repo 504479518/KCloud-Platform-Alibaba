@@ -15,11 +15,11 @@
  *
  */
 
-package org.laokou.admin.role.service.extensionpoint.extension;
+package org.laokou.admin.user.service.extensionpoint.extension;
 
-import org.laokou.admin.role.gatewayimpl.database.RoleMapper;
-import org.laokou.admin.role.model.RoleE;
-import org.laokou.admin.role.service.extensionpoint.RoleParamValidatorExtPt;
+import org.laokou.admin.user.gatewayimpl.database.UserMapper;
+import org.laokou.admin.user.model.UserE;
+import org.laokou.admin.user.service.extensionpoint.UserParamValidatorExtPt;
 import org.laokou.common.extension.Extension;
 import org.laokou.common.i18n.utils.ParamValidator;
 
@@ -29,22 +29,24 @@ import static org.laokou.common.i18n.common.constant.Constant.SCENARIO;
 /**
  * @author laokou
  */
-@Extension(bizId = MODIFY, useCase = ROLE, scenario = SCENARIO)
-public class ModifyRoleParamValidator implements RoleParamValidatorExtPt {
+@Extension(bizId = MODIFY, useCase = USER, scenario = SCENARIO)
+public class ModifyUserParamValidator implements UserParamValidatorExtPt {
 
 	@Override
-	public void validate(RoleE roleE, RoleMapper roleMapper) {
+	public void validate(UserE userE, UserMapper userMapper) {
 		ParamValidator.validate(
 				// 校验ID
-				RoleParamValidator.validateId(roleE),
-				// 校验名称
-				RoleParamValidator.validateName(roleE, roleMapper, false),
-				// 校验数据范围
-				RoleParamValidator.validateDataScope(roleE),
-				// 校验菜单IDS
-				RoleParamValidator.validateMenuIds(roleE),
-				// 校验排序
-				RoleParamValidator.validateSort(roleE));
+				UserParamValidator.validateId(userE),
+				// 校验用户名
+				UserParamValidator.validateUserName(userE, userMapper, false),
+				// 校验邮箱
+				UserParamValidator.validateMail(userE, userMapper, false),
+				// 校验手机号
+				UserParamValidator.validateMobile(userE, userMapper, false),
+				// 校验角色IDS
+				UserParamValidator.validateRoleIds(userE),
+				// 校验部门IDS
+				UserParamValidator.validateDeptIds(userE));
 	}
 
 }

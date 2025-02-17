@@ -15,26 +15,30 @@
  *
  */
 
-package org.laokou.admin.common.constant;
+package org.laokou.storage.support;
 
-/**
- * @author laokou
- */
-public final class Constant {
+import lombok.Getter;
 
-	public static final String SAVE = "save";
+@Getter
+public enum Type {
 
-	public static final String MODIFY = "modify";
+	POSTGRESQL("postgresql", "PostgreSQL"),
 
-	public static final String MENU = "menu";
+	ELASTICSEARCH("elasticsearch", "ElasticSearch"),
 
-	public static final String DEPT = "dept";
+	INFLUXDB("influxdb", "InfluxDB"),
 
-	public static final String ROLE = "role";
+	TDENGINE("tdengine", "TDengine"),
 
-	public static final String USER = "user";
+	MONGODB("mongodb", "MongoDB");
 
-	private Constant() {
+	private final String code;
+
+	private final String desc;
+
+	Type(String code, String desc) {
+		this.code = code;
+		this.desc = desc;
 	}
 
 }
